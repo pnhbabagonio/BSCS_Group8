@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, watch } from "vue"
 import { router } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+
 import {
     Search,
     Plus,
@@ -23,9 +24,32 @@ import {
     X,
 } from "lucide-vue-next"
 
+// --- Types ---
+interface Requirement {
+    id: number
+    title: string
+    description: string
+    amount: number
+    deadline: string
+    total_users: number
+    paid: number
+    unpaid: number
+    created_at: string
+    updated_at: string
+}
+
+// --- Props & Emits ---
+const props = defineProps<{
+    requirements: Requirement[]
+}>()
+
+const emit = defineEmits<{
+    (e: 'refresh-data'): void
+}>()
+
 // --- State ---
 const showModal = ref(false)
-const editingRequirement = ref<any>(null)
+const editingRequirement = ref<Requirement | null>(null)
 const isLoading = ref(false)
 
 const search = ref("")
@@ -39,8 +63,8 @@ const filterOptions = ["All", "Pending", "Overdue", "Done"]
 const rowsPerPage = ref(10)
 const currentPage = ref(1)
 
-// Requirements data from server
-const requirements = ref<Array<any>>([])
+// Use props data directly
+const requirements = ref<Requirement[]>(props.requirements || [])
 
 // --- Modal Form Data ---
 const form = ref({
@@ -49,6 +73,12 @@ const form = ref({
     amount: 0,
     deadline: "",
     total_users: 0,
+})
+
+// Watch for prop changes and update local data
+watch(() => props.requirements, (newRequirements) => {
+    requirements.value = newRequirements || []
+    console.log(`Updated requirements from props: ${requirements.value.length} records`)
 })
 
 // --- Methods ---
@@ -64,7 +94,7 @@ function openAddModal() {
     showModal.value = true
 }
 
-function openEditModal(req: any) {
+function openEditModal(req: Requirement) {
     editingRequirement.value = req
     form.value = {
         title: req.title,
@@ -82,7 +112,7 @@ function submitForm() {
             onSuccess: () => {
                 showModal.value = false
                 resetForm()
-                loadRequirements()
+                emit('refresh-data') // Emit event to parent to refresh data
             },
         })
     } else {
@@ -90,7 +120,7 @@ function submitForm() {
             onSuccess: () => {
                 showModal.value = false
                 resetForm()
-                loadRequirements()
+                emit('refresh-data') // Emit event to parent to refresh data
             },
         })
     }
@@ -100,7 +130,7 @@ function deleteRequirement(id: number) {
     if (confirm('Are you sure you want to delete this requirement?')) {
         router.delete(`/requirements/${id}`, {
             onSuccess: () => {
-                loadRequirements()
+                emit('refresh-data') // Emit event to parent to refresh data
             },
         })
     }
@@ -122,24 +152,8 @@ function clearFilters() {
     search.value = ''
 }
 
-// Load requirements from server
-function loadRequirements() {
-    isLoading.value = true
-    router.get('/requirements', {}, {
-        preserveState: true,
-        onSuccess: (page) => {
-            const reqs = Array.isArray(page.props.requirements) ? page.props.requirements : []
-            requirements.value = reqs
-            isLoading.value = false
-        },
-        onError: () => {
-            isLoading.value = false
-        }
-    })
-}
-
 // --- Status Logic ---
-function getStatus(req: any): "Pending" | "Overdue" | "Done" {
+function getStatus(req: Requirement): "Pending" | "Overdue" | "Done" {
     const now = new Date()
     const deadline = new Date(req.deadline)
 
@@ -169,7 +183,7 @@ function getStatusIcon(status: string) {
 
 // --- Filtered + Paginated List ---
 const filteredRequirements = computed(() => {
-    return requirements.value.filter((req: any) => {
+    return requirements.value.filter((req: Requirement) => {
         const status = getStatus(req)
         const matchesSearch = req.title
             .toLowerCase()
@@ -192,9 +206,13 @@ const totalPages = computed(() => {
     return Math.ceil(filteredRequirements.value.length / rowsPerPage.value)
 })
 
-// Load requirements on component mount
+// Initialize with props when component mounts
 onMounted(() => {
-    loadRequirements()
+    console.log("Requirements component mounted")
+    console.log(`Initial props - Requirements: ${props.requirements?.length || 0}`)
+    
+    // Initialize local data with props
+    requirements.value = props.requirements || []
 })
 </script>
 
@@ -223,14 +241,8 @@ onMounted(() => {
             </div>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="isLoading" class="text-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p class="text-muted-foreground mt-2">Loading requirements...</p>
-        </div>
-
-        <!-- Content when not loading -->
-        <template v-else>
+        <!-- Content -->
+        <div>
             <!-- Search + Filter -->
             <div class="flex items-center gap-3 mb-6">
                 <!-- Search -->
@@ -466,7 +478,7 @@ onMounted(() => {
             </div>
 
             <!-- Empty State -->
-            <div v-if="filteredRequirements.length === 0 && !isLoading" class="text-center py-8 text-muted-foreground">
+            <div v-if="filteredRequirements.length === 0" class="text-center py-8 text-muted-foreground">
                 <DollarSign class="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No payment requirements found</p>
                 <Button 
@@ -611,6 +623,6 @@ onMounted(() => {
                     </Button>
                 </div>
             </div>
-        </template>
+        </div>
     </div>
 </template>

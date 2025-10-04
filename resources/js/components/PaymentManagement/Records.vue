@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import { ref, computed, watch, onMounted } from "vue"
+import { router, usePage } from "@inertiajs/vue3"
 import {
     Search,
     Plus,
@@ -9,6 +10,8 @@ import {
     Pencil,
     Trash2,
     QrCode,
+    User,
+    UserPlus,
 } from "lucide-vue-next"
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,157 +19,343 @@ import { Button } from '@/components/ui/button';
 // --- Types ---
 interface PaymentRecord {
     id: number
-    firstName: string
-    middleName: string
-    lastName: string
-    requirement: string
-    amount: number
-    date: string
-    method?: string
-    status: "Paid" | "Unpaid"
+    user_id: number | null
+    requirement_id: number
+    amount_paid: number
+    paid_at: string | null
+    status: "paid" | "unpaid" | "pending"
+    payment_method: string | null
+    notes: string | null
+    first_name: string | null
+    middle_name: string | null
+    last_name: string | null
+    student_id: string | null
+    user: {
+        id: number
+        first_name: string
+        middle_name: string | null
+        last_name: string
+        student_id: string | null
+        full_name?: string
+    } | null
+    requirement: {
+        id: number
+        title: string
+        amount: number
+    }
+    created_at: string
+    updated_at: string
 }
+
+interface User {
+    id: number
+    first_name: string
+    middle_name: string | null
+    last_name: string
+    student_id: string | null
+    full_name?: string
+}
+
+interface Requirement {
+    id: number
+    title: string
+    amount: number
+}
+
+// --- Props & Emits ---
+const props = defineProps<{
+    payments: PaymentRecord[]
+    requirements: Requirement[]
+    users: User[]
+}>()
+
+const emit = defineEmits<{
+    (e: 'refresh-data'): void
+}>()
 
 // --- State ---
 const showModal = ref(false)
 const editingRecord = ref<PaymentRecord | null>(null)
+const manualEntry = ref(false)
+const isLoading = ref(false)
 
 const search = ref("")
 const isFilterOpen = ref(false)
 const paymentFilter = ref("All")
-const filterOptions = ["All", "Paid", "Unpaid"]
+const filterOptions = ["All", "paid", "unpaid", "pending"]
 
-// Mock Data
-const records = ref<PaymentRecord[]>([
-    {
-        id: 1,
-        firstName: "John",
-        middleName: "M.",
-        lastName: "Doe",
-        requirement: "Membership Fee - Semester 1",
-        amount: 500,
-        date: "2025-09-01",
-        method: "GCash",
-        status: "Paid",
-    },
-    {
-        id: 2,
-        firstName: "Jane",
-        middleName: "A.",
-        lastName: "Smith",
-        requirement: "Event Fee - Annual Convention",
-        amount: 300,
-        date: "",
-        status: "Unpaid",
-    },
-])
+// Use props data directly - initialize with props
+const payments = ref<PaymentRecord[]>(props.payments || [])
+const requirements = ref<Requirement[]>(props.requirements || [])
+const users = ref<User[]>(props.users || [])
 
 // --- Modal Form Data ---
-const newRecord = ref({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    requirement: "",
-    amount: 0,
-    date: "",
-    method: "",
-    status: "Unpaid" as "Paid" | "Unpaid",
+const form = ref({
+    user_id: "",
+    requirement_id: "",
+    amount_paid: 0,
+    paid_at: "",
+    status: "pending" as "paid" | "unpaid" | "pending",
+    payment_method: "",
+    notes: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    student_id: "",
 })
 
-// Requirement Options (dropdown)
-const requirementOptions = [
-    { title: "Membership Fee - Semester 1", amount: 500 },
-    { title: "Event Fee - Annual Convention", amount: 300 },
-    { title: "Sports Fest Fee", amount: 200 },
-]
+// --- Computed Properties ---
+const selectedRequirement = computed(() => {
+    if (!form.value.requirement_id) return null
+    return requirements.value.find(req => req.id === parseInt(form.value.requirement_id))
+})
+
+// Watch for prop changes and update local data
+watch(() => props.payments, (newPayments) => {
+    payments.value = newPayments || []
+    console.log(`Updated payments from props: ${payments.value.length} records`)
+})
+
+watch(() => props.requirements, (newRequirements) => {
+    requirements.value = newRequirements || []
+    console.log(`Updated requirements from props: ${requirements.value.length} records`)
+})
+
+watch(() => props.users, (newUsers) => {
+    users.value = newUsers || []
+    console.log(`Updated users from props: ${users.value.length} records`)
+})
 
 // --- Methods ---
+function loadRecords() {
+    // Emit event to parent to refresh data
+    console.log("Emitting refresh-data event to parent")
+    emit('refresh-data')
+}
+
 function openAddModal() {
     editingRecord.value = null
-    newRecord.value = {
-        firstName: "",
-        middleName: "",
-        lastName: "",
-        requirement: "",
-        amount: 0,
-        date: "",
-        method: "",
-        status: "Unpaid",
+    manualEntry.value = false
+    form.value = {
+        user_id: "",
+        requirement_id: "",
+        amount_paid: 0,
+        paid_at: "",
+        status: "pending",
+        payment_method: "",
+        notes: "",
+        first_name: "",
+        middle_name: "",
+        last_name: "",
+        student_id: "",
     }
     showModal.value = true
 }
 
 function openEditModal(record: PaymentRecord) {
     editingRecord.value = record
-    newRecord.value = {
-        firstName: record.firstName,
-        middleName: record.middleName,
-        lastName: record.lastName,
-        requirement: record.requirement,
-        amount: record.amount,
-        date: record.date,
-        method: record.method || "",
+    manualEntry.value = !record.user_id
+    
+    form.value = {
+        user_id: record.user_id ? record.user_id.toString() : "",
+        requirement_id: record.requirement_id.toString(),
+        amount_paid: record.amount_paid,
+        paid_at: record.paid_at ? record.paid_at.split('T')[0] : "",
         status: record.status,
+        payment_method: record.payment_method || "",
+        notes: record.notes || "",
+        first_name: record.first_name || "",
+        middle_name: record.middle_name || "",
+        last_name: record.last_name || "",
+        student_id: record.student_id || "",
     }
     showModal.value = true
 }
 
 function saveRecord() {
-    if (!newRecord.value.firstName || !newRecord.value.lastName || !newRecord.value.requirement) {
-        alert("Please fill in all required fields")
+    if (!form.value.requirement_id) {
+        alert("Please select a requirement")
         return
     }
 
-    if (editingRecord.value) {
-        Object.assign(editingRecord.value, { ...newRecord.value })
-    } else {
-        records.value.push({
-        id: records.value.length + 1,
-        ...newRecord.value,
-        })
+    if (!manualEntry.value && !form.value.user_id) {
+        alert("Please select a user or switch to manual entry")
+        return
     }
 
-    showModal.value = false
+    if (manualEntry.value && (!form.value.first_name || !form.value.last_name)) {
+        alert("Please enter first name and last name for manual entry")
+        return
+    }
+
+    // Prepare the data properly
+    const submitData: {
+        requirement_id: number
+        amount_paid: number
+        status: "paid" | "unpaid" | "pending"
+        payment_method: string | null
+        notes: string | null
+        paid_at: string | null
+        first_name?: string
+        middle_name?: string | null
+        last_name?: string
+        student_id?: string | null
+        user_id?: number | null
+    } = {
+        requirement_id: parseInt(form.value.requirement_id),
+        amount_paid: parseFloat(form.value.amount_paid.toString()),
+        status: form.value.status,
+        payment_method: form.value.payment_method || null,
+        notes: form.value.notes || null,
+        paid_at: form.value.paid_at || null,
+    }
+
+    // Handle user data based on entry type
+    if (manualEntry.value) {
+        // Manual entry - use name fields
+        submitData.first_name = form.value.first_name
+        submitData.middle_name = form.value.middle_name || null
+        submitData.last_name = form.value.last_name
+        submitData.student_id = form.value.student_id || null
+        submitData.user_id = null
+    } else {
+        // Existing user - use user_id
+        submitData.user_id = parseInt(form.value.user_id)
+    }
+
+    console.log("Submitting data:", submitData)
+
+    if (editingRecord.value) {
+        router.put(`/records/${editingRecord.value.id}`, submitData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showModal.value = false
+                loadRecords() // This will emit to parent to refresh data
+            },
+            onError: (errors) => {
+                console.error('Error updating record:', errors)
+                alert('Error updating record. Please check the console for details.')
+            }
+        })
+    } else {
+        router.post('/records', submitData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showModal.value = false
+                loadRecords() // This will emit to parent to refresh data
+            },
+            onError: (errors) => {
+                console.error('Error creating record:', errors)
+                // Show specific error messages if available
+                if (errors && typeof errors === 'object') {
+                    const errorMessages = Object.values(errors).join('\n')
+                    alert(`Error creating record:\n${errorMessages}`)
+                } else {
+                    alert('Error creating record. Please check the console for details.')
+                }
+            }
+        })
+    }
 }
 
 function deleteRecord(id: number) {
-    records.value = records.value.filter((r) => r.id !== id)
+    if (confirm('Are you sure you want to delete this payment record?')) {
+        router.delete(`/records/${id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                loadRecords() // This will emit to parent to refresh data
+            },
+            onError: (errors) => {
+                console.error('Error deleting record:', errors)
+            }
+        })
+    }
 }
 
-// --- Filtered List ---
+function toggleManualEntry() {
+    manualEntry.value = !manualEntry.value
+    if (manualEntry.value) {
+        form.value.user_id = ""
+    } else {
+        form.value.first_name = ""
+        form.value.middle_name = ""
+        form.value.last_name = ""
+        form.value.student_id = ""
+    }
+}
+
+function onRequirementChange() {
+    if (selectedRequirement.value) {
+        form.value.amount_paid = selectedRequirement.value.amount
+    }
+}
+
+function clearFilters() {
+    paymentFilter.value = 'All'
+    search.value = ''
+    // No need to call loadRecords() here since we're using client-side filtering
+}
+
+// Get display name for user dropdown
+function getUserDisplayName(user: User) {
+    if (user.full_name) {
+        return user.full_name
+    }
+    return `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim()
+}
+
+// --- Filtering ---
+// Client-side filtering only since data is passed as props
 const filteredRecords = computed(() => {
-    return records.value.filter((rec) => {
-        const matchesSearch =
-        `${rec.firstName} ${rec.middleName} ${rec.lastName} ${rec.requirement}`
-            .toLowerCase()
-            .includes(search.value.toLowerCase())
+    let filtered = payments.value
 
-        if (paymentFilter.value === "All") return matchesSearch
-        return rec.status === paymentFilter.value && matchesSearch
-    })
-})
-
-// --- QR Scan (instant add record) ---
-function scanQR() {
-    const scannedData = {
-        firstName: "Scanned",
-        middleName: "QR",
-        lastName: "Student",
-        requirement: "Membership Fee - Semester 1",
-        amount: 500,
+    if (search.value) {
+        const searchLower = search.value.toLowerCase()
+        filtered = filtered.filter(record => 
+            getDisplayName(record).toLowerCase().includes(searchLower) ||
+            record.requirement.title.toLowerCase().includes(searchLower)
+        )
     }
 
-    const newId = records.value.length + 1
+    if (paymentFilter.value !== 'All') {
+        filtered = filtered.filter(record => record.status === paymentFilter.value)
+    }
 
-    records.value.push({
-        id: newId,
-        ...scannedData,
-        status: "Paid",
-        method: "QR Scan",
-        date: new Date().toISOString().split("T")[0],
-    })
+    return filtered
+})
 
-    alert("QR payment recorded instantly!")
+// Format date for display
+function formatDate(dateString: string | null) {
+    if (!dateString) return "—"
+    return new Date(dateString).toLocaleDateString()
 }
+
+// Get user full name for display
+function getDisplayName(record: PaymentRecord) {
+    if (record.user_id && record.user) {
+        return `${record.user.first_name} ${record.user.middle_name || ''} ${record.user.last_name}`.trim()
+    }
+    return `${record.first_name} ${record.middle_name || ''} ${record.last_name}`.trim()
+}
+
+// Get user details for display
+function getUserDetails(record: PaymentRecord) {
+    if (record.user_id && record.user) {
+        return record.user.student_id ? `(${record.user.student_id})` : '(Registered User)'
+    }
+    return record.student_id ? `(${record.student_id})` : '(Manual Entry)'
+}
+
+// Initialize with props when component mounts
+onMounted(() => {
+    console.log("Records component mounted")
+    console.log(`Initial props - Payments: ${props.payments?.length || 0}, Requirements: ${props.requirements?.length || 0}, Users: ${props.users?.length || 0}`)
+    
+    // Initialize local data with props
+    payments.value = props.payments || []
+    requirements.value = props.requirements || []
+    users.value = props.users || []
+})
 </script>
 
 <template>
@@ -179,13 +368,6 @@ function scanQR() {
             </div>
             <div class="flex gap-2">
                 <Button
-                    @click="scanQR"
-                    variant="outline"
-                    class="gap-2"
-                >
-                    <QrCode class="w-4 h-4" /> Scan QR
-                </Button>
-                <Button
                     @click="openAddModal"
                     class="gap-2"
                 >
@@ -194,274 +376,347 @@ function scanQR() {
             </div>
         </div>
 
-        <!-- Search + Filter -->
-        <div class="flex items-center gap-3 mb-6">
-        
-            <!-- Search -->
-            <div
-                class="flex items-center flex-1 bg-muted border border-border rounded-lg px-3 py-2"
-            >
-                <Search class="w-4 h-4 text-muted-foreground" />
-                <input
-                    v-model="search"
-                    type="text"
-                    placeholder="Search name..."
-                    class="ml-2 flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
-                />
-            </div>
+        <!-- Loading State - Removed since parent handles loading -->
 
-            <!-- Filter -->
-            <div class="relative">
-                <Button
-                    @click="isFilterOpen = !isFilterOpen"
-                    variant="outline"
-                    class="gap-2"
-                >
-                    <Filter class="w-4 h-4" />
-                    <span>{{ paymentFilter }}</span>
-                    <ChevronDown
-                        class="w-4 h-4 transition-transform"
-                        :class="{ 'rotate-180': isFilterOpen }"
+        <!-- Content -->
+        <div>
+            <!-- Search + Filter -->
+            <div class="flex items-center gap-3 mb-6">
+                <!-- Search -->
+                <div class="flex items-center flex-1 bg-muted border border-border rounded-lg px-3 py-2">
+                    <Search class="w-4 h-4 text-muted-foreground" />
+                    <input
+                        v-model="search"
+                        type="text"
+                        placeholder="Search name..."
+                        class="ml-2 flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
                     />
-                </Button>
-
-                <!-- Dropdown -->
-                <div
-                v-if="isFilterOpen"
-                class="absolute right-0 mt-2 w-32 bg-card border border-border rounded-lg shadow-lg z-10 overflow-hidden"
-                >
-                    <button
-                        v-for="option in filterOptions"
-                        :key="option"
-                        @click="
-                        paymentFilter = option;
-                        isFilterOpen = false
-                        "
-                        class="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                        :class="{ 'bg-muted': paymentFilter === option }"
-                    >
-                        {{ option }}
-                    </button>
                 </div>
-            </div>
 
-            <!-- Clear Filter -->
-            <Button
-                v-if="paymentFilter !== 'All' || search"
-                @click="paymentFilter = 'All'; search = ''"
-                variant="outline"
-            >
-                Clear Filters
-            </Button>
-        </div>
-
-        <!-- Table -->
-        <div class="overflow-x-auto rounded-xl border border-border bg-card">
-            <table class="w-full text-sm text-left">
-                <thead class="bg-muted uppercase text-xs">
-                    <tr>
-                        <th class="px-4 py-3 text-muted-foreground">Student</th>
-                        <th class="px-4 py-3 text-muted-foreground">Requirement</th>
-                        <th class="px-4 py-3 text-muted-foreground">Amount</th>
-                        <th class="px-4 py-3 text-muted-foreground">Date</th>
-                        <th class="px-4 py-3 text-muted-foreground">Method</th>
-                        <th class="px-4 py-3 text-muted-foreground">Status</th>
-                        <th class="px-4 py-3 text-muted-foreground">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="record in filteredRecords"
-                        :key="record.id"
-                        class="border-t border-border hover:bg-muted/50 transition-colors"
+                <!-- Filter -->
+                <div class="relative">
+                    <Button
+                        @click="isFilterOpen = !isFilterOpen"
+                        variant="outline"
+                        class="gap-2"
                     >
-                        <td class="px-4 py-3 font-medium">
-                        {{ record.firstName }} {{ record.middleName }} {{ record.lastName }}
-                        </td>
-                        <td class="px-4 py-3">{{ record.requirement }}</td>
-                        <td class="px-4 py-3">₱{{ record.amount }}</td>
-                        <td class="px-4 py-3">{{ record.date || "—" }}</td>
-                        <td class="px-4 py-3">{{ record.status === "Paid" ? record.method : "—" }}</td>
-                        <td class="px-4 py-3">
-                            <Badge
-                                :class="{
-                                'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-300': record.status === 'Paid',
-                                'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-300': record.status === 'Unpaid',
-                                }"
-                            >
-                                {{ record.status }}
-                            </Badge>
-                        </td>
-                        <td class="px-4 py-3 flex gap-2">
-                            <Button
-                                @click="openEditModal(record)"
-                                variant="ghost"
-                                size="icon"
-                            >
-                                <Pencil class="w-4 h-4" />
-                            </Button>
-                            <Button
-                                @click="deleteRecord(record.id)"
-                                variant="ghost"
-                                size="icon"
-                            >
-                                <Trash2 class="w-4 h-4" />
-                            </Button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <!-- Empty state -->
-            <div v-if="filteredRecords.length === 0" class="text-center py-8 text-muted-foreground">
-                <Search class="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No payment records found</p>
-            </div>
-        </div>
+                        <Filter class="w-4 h-4" />
+                        <span>{{ paymentFilter }}</span>
+                        <ChevronDown
+                            class="w-4 h-4 transition-transform"
+                            :class="{ 'rotate-180': isFilterOpen }"
+                        />
+                    </Button>
 
-        <!-- Add/Edit Record Modal -->
-        <div
-            v-if="showModal"
-            class="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50"
-        >
-            <div class="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold">
-                        {{ editingRecord ? "Edit Payment Record" : "Add Payment Record" }}
-                    </h3>
-                    <Button @click="showModal = false" variant="ghost" size="icon">
-                        <X class="w-5 h-5" />
+                    <!-- Dropdown -->
+                    <div
+                        v-if="isFilterOpen"
+                        class="absolute right-0 mt-2 w-32 bg-card border border-border rounded-lg shadow-lg z-10 overflow-hidden"
+                    >
+                        <button
+                            v-for="option in filterOptions"
+                            :key="option"
+                            @click="
+                                paymentFilter = option;
+                                isFilterOpen = false
+                            "
+                            class="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                            :class="{ 'bg-muted': paymentFilter === option }"
+                        >
+                            {{ option }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Clear Filter -->
+                <Button
+                    v-if="paymentFilter !== 'All' || search"
+                    @click="clearFilters"
+                    variant="outline"
+                >
+                    Clear Filters
+                </Button>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto rounded-xl border border-border bg-card">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-muted uppercase text-xs">
+                        <tr>
+                            <th class="px-4 py-3 text-muted-foreground">Student</th>
+                            <th class="px-4 py-3 text-muted-foreground">Requirement</th>
+                            <th class="px-4 py-3 text-muted-foreground">Amount</th>
+                            <th class="px-4 py-3 text-muted-foreground">Date Paid</th>
+                            <th class="px-4 py-3 text-muted-foreground">Method</th>
+                            <th class="px-4 py-3 text-muted-foreground">Status</th>
+                            <th class="px-4 py-3 text-muted-foreground">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="record in filteredRecords"
+                            :key="record.id"
+                            class="border-t border-border hover:bg-muted/50 transition-colors"
+                        >
+                            <td class="px-4 py-3">
+                                <div class="font-medium">{{ getDisplayName(record) }}</div>
+                                <div class="text-xs text-muted-foreground">{{ getUserDetails(record) }}</div>
+                            </td>
+                            <td class="px-4 py-3">{{ record.requirement.title }}</td>
+                            <td class="px-4 py-3">₱{{ record.amount_paid }}</td>
+                            <td class="px-4 py-3">{{ formatDate(record.paid_at) }}</td>
+                            <td class="px-4 py-3">{{ record.payment_method || "—" }}</td>
+                            <td class="px-4 py-3">
+                                <Badge
+                                    :class="{
+                                        'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-300': record.status === 'paid',
+                                        'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-300': record.status === 'unpaid',
+                                        'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300': record.status === 'pending',
+                                    }"
+                                >
+                                    {{ record.status }}
+                                </Badge>
+                            </td>
+                            <td class="px-4 py-3 flex gap-2">
+                                <Button
+                                    @click="openEditModal(record)"
+                                    variant="ghost"
+                                    size="icon"
+                                >
+                                    <Pencil class="w-4 h-4" />
+                                </Button>
+                                <Button
+                                    @click="deleteRecord(record.id)"
+                                    variant="ghost"
+                                    size="icon"
+                                >
+                                    <Trash2 class="w-4 h-4" />
+                                </Button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- Empty state -->
+                <div v-if="filteredRecords.length === 0" class="text-center py-8 text-muted-foreground">
+                    <Search class="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No payment records found</p>
+                    <Button 
+                        v-if="!search && paymentFilter === 'All'" 
+                        @click="openAddModal" 
+                        class="gap-2 mt-4"
+                    >
+                        <Plus class="h-4 w-4" />
+                        Add First Record
                     </Button>
                 </div>
-                <form @submit.prevent="saveRecord" class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">First Name</label>
-                        <input
-                            v-model="newRecord.firstName"
-                            type="text"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Middle Name</label>
-                        <input
-                            v-model="newRecord.middleName"
-                            type="text"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Last Name</label>
-                        <input
-                            v-model="newRecord.lastName"
-                            type="text"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Requirement</label>
-                        <select
-                            v-model="newRecord.requirement"
-                            @change="
-                                newRecord.amount =
-                                requirementOptions.find((r) => r.title === newRecord.requirement)?.amount || 0
-                            "
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        >
-                            <option disabled value="">Select requirement</option>
-                            <option v-for="req in requirementOptions" :key="req.title" :value="req.title">
-                                {{ req.title }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Amount</label>
-                        <input
-                            v-model.number="newRecord.amount"
-                            type="number"
-                            disabled
-                            class="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Status</label>
-                        <select
-                            v-model="newRecord.status"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        >
-                            <option value="Paid">Paid</option>
-                            <option value="Unpaid">Unpaid</option>
-                        </select>
-                    </div>
-                    <div v-if="newRecord.status === 'Paid'">
-                        <label class="block text-sm text-muted-foreground mb-1">Payment Method</label>
-                        <select
-                            v-model="newRecord.method"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        >
-                            <option value="Cash">Cash</option>
-                            <option value="GCash">GCash</option>
-                            <option value="PayMaya">PayMaya</option>
-                        </select>
-                    </div>
-                    <div v-if="newRecord.status === 'Paid'">
-                        <label class="block text-sm text-muted-foreground mb-1">Date Paid</label>
-                        <input
-                            v-model="newRecord.date"
-                            type="date"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-
-                    <div class="flex justify-end gap-2 mt-6">
-                        <Button
-                            type="button"
-                            @click="showModal = false"
-                            variant="outline"
-                        >
-                        Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                        >
-                            {{ editingRecord ? "Save Changes" : "Add" }}
-                        </Button>
-                    </div>
-                </form>
             </div>
-        </div>
 
-        <!-- Pagination Footer -->
-        <div class="flex items-center justify-between p-4 text-sm text-muted-foreground mt-4">
-            <span>
-                Showing {{ filteredRecords.length ? 1 : 0 }}–
-                {{ filteredRecords.length }} of {{ filteredRecords.length }} records (page 1 of 1)
-            </span>
+            <!-- Add/Edit Record Modal -->
+            <div
+                v-if="showModal"
+                class="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50"
+            >
+                <div class="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-lg max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">
+                            {{ editingRecord ? "Edit Payment Record" : "Add Payment Record" }}
+                        </h3>
+                        <Button @click="showModal = false" variant="ghost" size="icon">
+                            <X class="w-5 h-5" />
+                        </Button>
+                    </div>
+                    
+                    <!-- Entry Type Toggle -->
+                    <div class="mb-4 p-3 bg-muted rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium">Entry Type:</span>
+                            <Button
+                                @click="toggleManualEntry"
+                                variant="outline"
+                                size="sm"
+                                class="gap-2"
+                            >
+                                <component :is="manualEntry ? User : UserPlus" class="w-4 h-4" />
+                                {{ manualEntry ? "Manual Entry" : "Existing User" }}
+                            </Button>
+                        </div>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            {{ manualEntry ? "Enter student details manually" : "Select from registered users" }}
+                        </p>
+                    </div>
 
-            <div class="flex items-center gap-2">
-                <span>Rows per page:</span>
-                <select
-                class="bg-background border border-border rounded px-2 py-1"
-                >
-                    <option>10</option>
-                    <option>25</option>
-                    <option>50</option>
-                </select>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    disabled
-                >
-                Previous
-                </Button>
-                <Button size="sm">1</Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    disabled
-                >
-                Next
-                </Button>
+                    <form @submit.prevent="saveRecord" class="space-y-4">
+                        <!-- Existing User Selection -->
+                        <div v-if="!manualEntry">
+                            <label class="block text-sm text-muted-foreground mb-1">
+                                Select Student <span class="text-destructive">*</span>
+                            </label>
+                            <select
+                                v-model="form.user_id"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                            >
+                                <option disabled value="">Select student</option>
+                                <option v-for="user in users" :key="user.id" :value="user.id">
+                                    {{ getUserDisplayName(user) }} 
+                                    {{ user.student_id ? `(${user.student_id})` : '' }}
+                                </option>
+                            </select>
+                            <p v-if="users.length === 0" class="text-xs text-destructive mt-1">
+                                No active users found in the system.
+                            </p>
+                        </div>
+
+                        <!-- Manual Entry Fields -->
+                        <div v-if="manualEntry" class="space-y-3 p-3 bg-muted/30 rounded-lg">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm text-muted-foreground mb-1">
+                                        First Name <span class="text-destructive">*</span>
+                                    </label>
+                                    <input
+                                        v-model="form.first_name"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                        placeholder="First name"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-muted-foreground mb-1">Middle Name</label>
+                                    <input
+                                        v-model="form.middle_name"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                        placeholder="Middle name"
+                                    />
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm text-muted-foreground mb-1">
+                                        Last Name <span class="text-destructive">*</span>
+                                    </label>
+                                    <input
+                                        v-model="form.last_name"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                        placeholder="Last name"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-muted-foreground mb-1">Student ID</label>
+                                    <input
+                                        v-model="form.student_id"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                        placeholder="Optional"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Requirement Selection -->
+                        <div>
+                            <label class="block text-sm text-muted-foreground mb-1">
+                                Requirement <span class="text-destructive">*</span>
+                            </label>
+                            <select
+                                v-model="form.requirement_id"
+                                @change="onRequirementChange"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                            >
+                                <option disabled value="">Select requirement</option>
+                                <option v-for="req in requirements" :key="req.id" :value="req.id">
+                                    {{ req.title }} (₱{{ req.amount }})
+                                </option>
+                            </select>
+                            <p v-if="requirements.length === 0" class="text-xs text-destructive mt-1">
+                                No requirements found. Please create requirements first.
+                            </p>
+                        </div>
+
+                        <!-- Amount -->
+                        <div>
+                            <label class="block text-sm text-muted-foreground mb-1">
+                                Amount <span class="text-destructive">*</span>
+                            </label>
+                            <input
+                                v-model.number="form.amount_paid"
+                                type="number"
+                                step="0.01"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                :class="{ 'bg-muted/50': selectedRequirement }"
+                                :readonly="!!selectedRequirement"
+                            />
+                            <p v-if="selectedRequirement" class="text-xs text-muted-foreground mt-1">
+                                Amount auto-filled from selected requirement
+                            </p>
+                        </div>
+
+                        <!-- Status -->
+                        <div>
+                            <label class="block text-sm text-muted-foreground mb-1">
+                                Status <span class="text-destructive">*</span>
+                            </label>
+                            <select
+                                v-model="form.status"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                            >
+                                <option value="pending">Pending</option>
+                                <option value="paid">Paid</option>
+                                <option value="unpaid">Unpaid</option>
+                            </select>
+                        </div>
+
+                        <!-- Payment Method (show only if paid) -->
+                        <div v-if="form.status === 'paid'">
+                            <label class="block text-sm text-muted-foreground mb-1">Payment Method</label>
+                            <select
+                                v-model="form.payment_method"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                            >
+                                <option value="Cash">Cash</option>
+                                <option value="GCash">GCash</option>
+                                <option value="PayMaya">PayMaya</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+
+                        <!-- Date Paid (show only if paid) -->
+                        <div v-if="form.status === 'paid'">
+                            <label class="block text-sm text-muted-foreground mb-1">Date Paid</label>
+                            <input
+                                v-model="form.paid_at"
+                                type="date"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                            />
+                        </div>
+
+                        <!-- Notes -->
+                        <div>
+                            <label class="block text-sm text-muted-foreground mb-1">Notes</label>
+                            <textarea
+                                v-model="form.notes"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
+                                rows="2"
+                                placeholder="Additional notes..."
+                            ></textarea>
+                        </div>
+
+                        <div class="flex justify-end gap-2 mt-6">
+                            <Button
+                                type="button"
+                                @click="showModal = false"
+                                variant="outline"
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit">
+                                {{ editingRecord ? "Save Changes" : "Add Record" }}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
