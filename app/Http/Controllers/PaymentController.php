@@ -145,25 +145,25 @@ class PaymentController extends Controller
      */
     public function store(Request $request)
     {
-    $validated = $request->validate([
-        'user_id' => 'nullable|exists:users,id',
-        'requirement_id' => 'required|exists:requirements,id',
-        'amount_paid' => 'required|numeric|min:0',
-        'paid_at' => 'nullable|date',
-        'status' => 'required|in:pending,paid,unpaid',
-        'payment_method' => 'nullable|string|max:255',
-        'notes' => 'nullable|string',
-        // Manual user info - only validate if user_id is null
-        'first_name' => 'required_if:user_id,null|string|max:255|nullable',
-        'middle_name' => 'nullable|string|max:255',
-        'last_name' => 'required_if:user_id,null|string|max:255|nullable',
-        'student_id' => 'nullable|string|max:255',
-    ]);
+        $validated = $request->validate([
+            'user_id' => 'nullable|exists:users,id',
+            'requirement_id' => 'required|exists:requirements,id',
+            'amount_paid' => 'required|numeric|min:0',
+            'paid_at' => 'nullable|date',
+            'status' => 'required|in:pending,paid,unpaid',
+            'payment_method' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            // Manual user info - only validate if user_id is null
+            'first_name' => 'required_if:user_id,null|string|max:255|nullable',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'required_if:user_id,null|string|max:255|nullable',
+            'student_id' => 'nullable|string|max:255',
+        ]);
 
-    // If status is paid and no paid_at date, set to current date
-    if ($validated['status'] === 'paid' && empty($validated['paid_at'])) {
-        $validated['paid_at'] = now();
-    }
+        // If status is paid and no paid_at date, set to current date
+        if ($validated['status'] === 'paid' && empty($validated['paid_at'])) {
+            $validated['paid_at'] = now();
+        }
 
         // If user_id is provided, clear manual user info
         if (!empty($validated['user_id'])) {
@@ -173,13 +173,15 @@ class PaymentController extends Controller
             $validated['student_id'] = null;
         }
 
-        Payment::create($validated);
+        $payment = Payment::create($validated);
+
+        // Update the requirement's paid/unpaid counts
+        $this->updateRequirementCounts($validated['requirement_id']);
 
         // Return JSON response for API calls
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json(['success' => 'Payment record created successfully.']);
         }
-
 
         return redirect()->route('records.index')->with('success', 'Payment record created successfully.');
     }
@@ -216,7 +218,14 @@ class PaymentController extends Controller
             $validated['student_id'] = null;
         }
 
+        $oldRequirementId = $payment->requirement_id;
         $payment->update($validated);
+
+        // Update counts for both old and new requirements if requirement changed
+        if ($oldRequirementId != $validated['requirement_id']) {
+            $this->updateRequirementCounts($oldRequirementId);
+        }
+        $this->updateRequirementCounts($validated['requirement_id']);
 
         // Return JSON response for API calls
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -231,7 +240,11 @@ class PaymentController extends Controller
      */
     public function destroy(Payment $payment)
     {
+        $requirementId = $payment->requirement_id;
         $payment->delete();
+
+        // Update the requirement's paid/unpaid counts
+        $this->updateRequirementCounts($requirementId);
 
         // Return JSON response for API calls
         if (request()->expectsJson() || request()->wantsJson()) {
@@ -239,6 +252,40 @@ class PaymentController extends Controller
         }
 
         return redirect()->route('records.index')->with('success', 'Payment record deleted successfully.');
+    }
+
+    /**
+     * Update paid and unpaid counts for a requirement
+     */
+    private function updateRequirementCounts($requirementId)
+    {
+        $requirement = Requirement::find($requirementId);
+        if (!$requirement) {
+            return;
+        }
+
+        // Count distinct users who have paid for this requirement
+        $paidCount = Payment::where('requirement_id', $requirementId)
+            ->where('status', 'paid')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        // Also count manual entries (where user_id is null but status is paid)
+        $manualPaidCount = Payment::where('requirement_id', $requirementId)
+            ->where('status', 'paid')
+            ->whereNull('user_id')
+            ->count();
+
+        $totalPaid = $paidCount + $manualPaidCount;
+        $unpaidCount = $requirement->total_users - $totalPaid;
+
+        // Ensure counts don't go negative
+        $unpaidCount = max(0, $unpaidCount);
+
+        $requirement->update([
+            'paid' => $totalPaid,
+            'unpaid' => $unpaidCount,
+        ]);
     }
 
     /**

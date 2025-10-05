@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
 class Requirement extends Model
 {
     use HasFactory;
@@ -58,13 +59,21 @@ class Requirement extends Model
                     ->withTimestamps();
     }
 
-    // If you want to calculate unpaid automatically
-    public function getUnpaidAttribute()
+    /**
+     * Direct relationship with payments
+     */
+    public function payments()
     {
-        return $this->total_users - $this->paid;
+        return $this->hasMany(Payment::class);
     }
 
-    // Status accessor (similar to your Vue logic)
+    // Calculate unpaid automatically
+    public function getUnpaidAttribute()
+    {
+        return max(0, $this->total_users - $this->paid);
+    }
+
+    // Status accessor
     public function getStatusAttribute()
     {
         $now = now();
@@ -81,6 +90,33 @@ class Requirement extends Model
      */
     public function calculatePaidCount()
     {
-        return $this->paidUsers()->count();
+        // Count distinct users who have paid
+        $userPaidCount = $this->payments()
+            ->where('status', 'paid')
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        // Count manual payments (no user_id)
+        $manualPaidCount = $this->payments()
+            ->where('status', 'paid')
+            ->whereNull('user_id')
+            ->count();
+
+        return $userPaidCount + $manualPaidCount;
+    }
+
+    /**
+     * Recalculate and update paid/unpaid counts
+     */
+    public function recalculateCounts()
+    {
+        $paidCount = $this->calculatePaidCount();
+        $unpaidCount = max(0, $this->total_users - $paidCount);
+
+        $this->update([
+            'paid' => $paidCount,
+            'unpaid' => $unpaidCount,
+        ]);
     }
 }
