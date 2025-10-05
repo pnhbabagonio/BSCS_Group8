@@ -79,56 +79,91 @@ const tabs = [
     { key: "profiles", label: "User Profiles" },
 ]
 
-// Load payment data
-function loadPaymentData() {
-    isLoading.value = true
-    console.log("Loading payment data...")
-    
-    router.get('/records', {
-        search: '',
-        status: 'All'
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        onSuccess: (page) => {
-            console.log("Payment data loaded:", page.props)
-            
-            // Handle both direct props and nested data structures
-            if (page.props.payments && Array.isArray(page.props.payments)) {
-                payments.value = page.props.payments as PaymentRecord[]
-                console.log(`Loaded ${payments.value.length} payments`)
-            } else {
-                console.warn("No payments found in props or invalid format")
-                payments.value = []
-            }
-            
-            if (page.props.requirements && Array.isArray(page.props.requirements)) {
-                requirements.value = page.props.requirements as Requirement[]
-                console.log(`Loaded ${requirements.value.length} requirements`)
-            } else {
-                console.warn("No requirements found in props or invalid format")
+// Load requirements data from the requirements endpoint
+function loadRequirements() {
+    return new Promise((resolve, reject) => {
+        router.get('/requirements', {}, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                console.log("Requirements data loaded:", page.props)
+                
+                // Check if requirements data is available
+                if (page.props.requirements && Array.isArray(page.props.requirements)) {
+                    requirements.value = page.props.requirements as Requirement[]
+                    console.log(`Loaded ${requirements.value.length} requirements with full data`)
+                } else {
+                    console.warn("No requirements found in props or invalid format")
+                    requirements.value = []
+                }
+                resolve(true)
+            },
+            onError: (errors) => {
+                console.error('Error loading requirements:', errors)
                 requirements.value = []
+                reject(errors)
             }
-            
-            if (page.props.users && Array.isArray(page.props.users)) {
-                users.value = page.props.users as User[]
-                console.log(`Loaded ${users.value.length} users`)
-            } else {
-                console.warn("No users found in props or invalid format")
-                users.value = []
-            }
-            
-            isLoading.value = false
-        },
-        onError: (errors) => {
-            console.error('Error loading payment data:', errors)
-            isLoading.value = false
-            // Initialize empty arrays on error
-            payments.value = []
-            requirements.value = []
-            users.value = []
-        }
+        })
     })
+}
+
+// Load payment records and users data from the records endpoint
+function loadPaymentRecords() {
+    return new Promise((resolve, reject) => {
+        router.get('/records', {
+            search: '',
+            status: 'All'
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                console.log("Payment data loaded:", page.props)
+                
+                if (page.props.payments && Array.isArray(page.props.payments)) {
+                    payments.value = page.props.payments as PaymentRecord[]
+                    console.log(`Loaded ${payments.value.length} payments`)
+                } else {
+                    console.warn("No payments found in props or invalid format")
+                    payments.value = []
+                }
+                
+                if (page.props.users && Array.isArray(page.props.users)) {
+                    users.value = page.props.users as User[]
+                    console.log(`Loaded ${users.value.length} users`)
+                } else {
+                    console.warn("No users found in props or invalid format")
+                    users.value = []
+                }
+                resolve(true)
+            },
+            onError: (errors) => {
+                console.error('Error loading payment data:', errors)
+                payments.value = []
+                users.value = []
+                reject(errors)
+            }
+        })
+    })
+}
+
+// Load all data
+async function loadPaymentData() {
+    isLoading.value = true
+    console.log("Loading all payment data...")
+    
+    try {
+        // Load requirements first (they're needed for the requirements tab)
+        await loadRequirements()
+        
+        // Then load payments and users (they're needed for the records tab)
+        await loadPaymentRecords()
+        
+        console.log("All data loaded successfully")
+    } catch (error) {
+        console.error('Error loading data:', error)
+    } finally {
+        isLoading.value = false
+    }
 }
 
 // Handle refresh from child component

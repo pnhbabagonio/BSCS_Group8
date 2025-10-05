@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Requirement;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+
 class RequirementController extends Controller
 {
     /**
@@ -58,7 +59,13 @@ class RequirementController extends Controller
 
         Requirement::create($validated);
 
-        return redirect()->route('requirements.index')->with('success', 'Requirement created successfully.');
+        // Check if this is an Inertia request
+        if ($request->header('X-Inertia')) {
+            return redirect()->route('requirements.index')->with('success', 'Requirement created successfully.');
+        }
+
+        // For API calls, return JSON
+        return response()->json(['success' => 'Requirement created successfully.']);
     }
 
     /**
@@ -79,6 +86,12 @@ class RequirementController extends Controller
 
         $requirement->update($validated);
 
+        // Check if this is an Inertia request
+        if ($request->header('X-Inertia')) {
+            return redirect()->route('requirements.index')->with('success', 'Requirement updated successfully.');
+        }
+
+        // For API calls, return JSON
         return response()->json(['success' => 'Requirement updated successfully.']);
     }
 
@@ -89,6 +102,12 @@ class RequirementController extends Controller
     {
         $requirement->delete();
 
+        // Check if this is an Inertia request
+        if (request()->header('X-Inertia')) {
+            return redirect()->route('requirements.index')->with('success', 'Requirement deleted successfully.');
+        }
+
+        // For API calls, return JSON
         return response()->json(['success' => 'Requirement deleted successfully.']);
     }
 

@@ -107,21 +107,73 @@ function openEditModal(req: Requirement) {
 }
 
 function submitForm() {
+    // Validate form data
+    if (!form.value.title.trim()) {
+        alert('Please enter a title')
+        return
+    }
+    if (!form.value.amount || form.value.amount <= 0) {
+        alert('Please enter a valid amount')
+        return
+    }
+    if (!form.value.deadline) {
+        alert('Please select a deadline')
+        return
+    }
+    if (!form.value.total_users || form.value.total_users < 1) {
+        alert('Please enter a valid number of users')
+        return
+    }
+
+    const submitData = {
+        title: form.value.title.trim(),
+        description: form.value.description.trim(),
+        amount: form.value.amount,
+        deadline: form.value.deadline,
+        total_users: form.value.total_users,
+    }
+
+    console.log('Submitting requirement data:', submitData)
+
     if (editingRequirement.value) {
-        router.put(`/requirements/${editingRequirement.value.id}`, form.value, {
+        router.put(`/requirements/${editingRequirement.value.id}`, submitData, {
+            preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 showModal.value = false
                 resetForm()
-                emit('refresh-data') // Emit event to parent to refresh data
+                // The parent component will handle the data refresh after redirect
+                console.log('Requirement updated successfully')
             },
+            onError: (errors) => {
+                console.error('Error updating requirement:', errors)
+                if (errors && typeof errors === 'object') {
+                    const errorMessages = Object.values(errors).join('\n')
+                    alert(`Error updating requirement:\n${errorMessages}`)
+                } else {
+                    alert('Error updating requirement. Please check the console for details.')
+                }
+            }
         })
     } else {
-        router.post('/requirements', form.value, {
+        router.post('/requirements', submitData, {
+            preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
                 showModal.value = false
                 resetForm()
-                emit('refresh-data') // Emit event to parent to refresh data
+                // The parent component will handle the data refresh after redirect
+                console.log('Requirement created successfully')
             },
+            onError: (errors) => {
+                console.error('Error creating requirement:', errors)
+                if (errors && typeof errors === 'object') {
+                    const errorMessages = Object.values(errors).join('\n')
+                    alert(`Error creating requirement:\n${errorMessages}`)
+                } else {
+                    alert('Error creating requirement. Please check the console for details.')
+                }
+            }
         })
     }
 }
