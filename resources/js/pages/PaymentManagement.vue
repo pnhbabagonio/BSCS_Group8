@@ -60,11 +60,33 @@ interface Requirement {
     updated_at: string
 }
 
+interface UserProfile {
+    id: string | number
+    type: 'user' | 'manual'
+    first_name: string
+    middle_name: string | null
+    last_name: string
+    full_name: string
+    student_id: string | null
+    program: string
+    year: string
+    section: string
+    total_balance: number
+    total_paid: number
+    total_unpaid: number
+    paid_requirements: any[]
+    unpaid_requirements: any[]
+    payment_history: any[]
+    paid_requirements_count: number
+    unpaid_requirements_count: number
+}
+
 // --- Reactive State with Proper Typing ---
 const activeTab = ref("requirements")
 const payments = ref<PaymentRecord[]>([])
 const requirements = ref<Requirement[]>([])
 const users = ref<User[]>([])
+const userProfiles = ref<UserProfile[]>([])
 const isLoading = ref(false)
 
 // Breadcrumbs
@@ -88,7 +110,6 @@ function loadRequirements() {
             onSuccess: (page) => {
                 console.log("Requirements data loaded:", page.props)
                 
-                // Check if requirements data is available
                 if (page.props.requirements && Array.isArray(page.props.requirements)) {
                     requirements.value = page.props.requirements as Requirement[]
                     console.log(`Loaded ${requirements.value.length} requirements with full data`)
@@ -146,17 +167,47 @@ function loadPaymentRecords() {
     })
 }
 
+// Load user profiles data
+function loadUserProfiles() {
+    return new Promise((resolve, reject) => {
+        router.get('/user-profiles', {}, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                console.log("User profiles data loaded:", page.props)
+                
+                if (page.props.users && Array.isArray(page.props.users)) {
+                    userProfiles.value = page.props.users as UserProfile[]
+                    console.log(`Loaded ${userProfiles.value.length} user profiles`)
+                } else {
+                    console.warn("No user profiles found in props or invalid format")
+                    userProfiles.value = []
+                }
+                resolve(true)
+            },
+            onError: (errors) => {
+                console.error('Error loading user profiles:', errors)
+                userProfiles.value = []
+                reject(errors)
+            }
+        })
+    })
+}
+
 // Load all data
 async function loadPaymentData() {
     isLoading.value = true
     console.log("Loading all payment data...")
     
     try {
-        // Load requirements first (they're needed for the requirements tab)
+        // Load requirements first
         await loadRequirements()
         
-        // Then load payments and users (they're needed for the records tab)
+        // Then load payments and users
         await loadPaymentRecords()
+        
+        // Then load user profiles
+        await loadUserProfiles()
         
         console.log("All data loaded successfully")
     } catch (error) {
@@ -225,7 +276,7 @@ onMounted(() => {
                 />
                 <Profiles 
                     v-if="activeTab === 'profiles'" 
-                    :users="users"
+                    :users="userProfiles"
                     @refresh-data="handleRefreshData"
                 />
             </div>

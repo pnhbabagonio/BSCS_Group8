@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import { ref, computed, onMounted, watch } from "vue"
+import { router } from "@inertiajs/vue3"
 import {
     Search,
     Plus,
@@ -16,256 +17,200 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 // --- Types ---
-interface UserProfile {
+interface PaymentRequirement {
     id: number
-    firstName: string
-    lastName: string
-    course: string
-    year: string
-    section: string
-    totalBalance: number
-    totalPaid: number
-    totalUnpaid: number
-    paidRequirements: string[]
-    unpaidRequirements: { name: string; overdue: boolean }[]
+    title: string
+    amount: number
+    amount_paid?: number
+    paid_at?: string
+    payment_method?: string
+    overdue?: boolean
+    deadline?: string
 }
 
-// --- State (original) ---
+interface PaymentHistory {
+    id: number
+    requirement_title: string
+    amount_paid: number
+    status: string
+    paid_at: string | null
+    payment_method: string | null
+    notes: string | null
+    created_at: string
+}
+
+interface UserProfile {
+    id: string | number
+    type: 'user' | 'manual'
+    first_name: string
+    middle_name: string | null
+    last_name: string
+    full_name: string
+    student_id: string | null
+    program: string
+    year: string
+    section: string
+    total_balance: number
+    total_paid: number
+    total_unpaid: number
+    paid_requirements: PaymentRequirement[]
+    unpaid_requirements: PaymentRequirement[]
+    payment_history: PaymentHistory[]
+    paid_requirements_count: number
+    unpaid_requirements_count: number
+}
+
+// --- Props & Emits ---
+const props = defineProps<{
+    users: UserProfile[]
+}>()
+
+const emit = defineEmits<{
+    (e: 'refresh-data'): void
+}>()
+
+// --- State ---
 const search = ref("")
 const isFilterOpen = ref(false)
 const courseFilter = ref("All")
-const filterOptions = ["All", "Computer Science", "Information Tech", "Engineering"]
+const filterOptions = ref<string[]>([])
 
 // Modal states
 const showModal = ref(false)
 const showDetailsModal = ref(false)
-const editingUser = ref<UserProfile | null>(null)
 const selectedUser = ref<UserProfile | null>(null)
 
-// Records for QR scan (mock)
-const records = ref<any[]>([])
-
-// requirement-specific states (new)
+// Requirement-specific states
 const requirementSearch = ref("")
-const requirementFilter = ref("All") // All | Recent | Old | Paid | Unpaid
+const requirementFilter = ref("All")
 const isRequirementFilterOpen = ref(false)
+const isLoading = ref(false)
 
-// Mock Data (original)
-const users = ref<UserProfile[]>([
-    {
-        id: 1,
-        firstName: "John",
-        lastName: "Doe",
-        course: "Computer Science",
-        year: "3rd Year",
-        section: "A",
-        totalBalance: 1050,
-        totalPaid: 800,
-        totalUnpaid: 250,
-        paidRequirements: ["Membership Fee", "ID Fee"],
-        unpaidRequirements: [
-        { name: "Graduation Fee", overdue: true },
-        { name: "Library Fee", overdue: false },
-        ],
-    },
-    {
-        id: 2,
-        firstName: "Jane",
-        lastName: "Smith",
-        course: "Information Tech",
-        year: "2nd Year",
-        section: "B",
-        totalBalance: 900,
-        totalPaid: 500,
-        totalUnpaid: 400,
-        paidRequirements: ["Membership Fee"],
-        unpaidRequirements: [
-        { name: "Sports Fee", overdue: false },
-        { name: "Graduation Fee", overdue: true },
-        ],
-    },
-])
+// Use props data directly
+const users = ref<UserProfile[]>(props.users || [])
 
-// Form data (original)
-const newUser = ref<UserProfile>({
-    id: 0,
-    firstName: "",
-    lastName: "",
-    course: "",
-    year: "",
-    section: "",
-    totalBalance: 0,
-    totalPaid: 0,
-    totalUnpaid: 0,
-    paidRequirements: [],
-    unpaidRequirements: [],
+// Watch for prop changes
+watch(() => props.users, (newUsers) => {
+    users.value = newUsers || []
 })
 
-// --- Filtered users (original) ---
+// Initialize filter options from props
+onMounted(() => {
+    // Extract unique programs from users for filter options
+    const programs = [...new Set(users.value.map(user => user.program))].filter(Boolean)
+    filterOptions.value = ['All', ...programs]
+})
+
+// --- Filtered users ---
 const filteredUsers = computed(() => {
     return users.value.filter((user) => {
-        const matchesSearch =
-        `${user.firstName} ${user.lastName} ${user.course}`
-            .toLowerCase()
-            .includes(search.value.toLowerCase())
+        const matchesSearch = user.full_name.toLowerCase().includes(search.value.toLowerCase()) ||
+                            user.student_id?.toLowerCase().includes(search.value.toLowerCase()) ||
+                            user.program.toLowerCase().includes(search.value.toLowerCase())
 
         if (courseFilter.value === "All") return matchesSearch
-        return user.course === courseFilter.value && matchesSearch
+        return user.program === courseFilter.value && matchesSearch
     })
 })
 
-// padded mock data (ensures at least 10 requirements) — keep original behaviour
-users.value.forEach((u) => {
-    while (u.paidRequirements.length < 10) {
-        u.paidRequirements.push("Paid Requirement " + (u.paidRequirements.length + 1))
-    }
-    while (u.unpaidRequirements.length < 10) {
-        u.unpaidRequirements.push({
-        name: "Unpaid Requirement " + (u.unpaidRequirements.length + 1),
-        overdue: Math.random() > 0.5,
-        })
-    }
-})
-
-// --- Methods (original) ---
-function openAddModal() {
-    editingUser.value = null
-    newUser.value = {
-        id: 0,
-        firstName: "",
-        lastName: "",
-        course: "",
-        year: "",
-        section: "",
-        totalBalance: 0,
-        totalPaid: 0,
-        totalUnpaid: 0,
-        paidRequirements: [],
-        unpaidRequirements: [],
-    }
-    showModal.value = true
-}
-
-function openEditModal(user: UserProfile) {
-    editingUser.value = user
-    newUser.value = { ...user }
-    showModal.value = true
-}
-
-function saveUser() {
-    if (!newUser.value.firstName || !newUser.value.lastName || !newUser.value.course) {
-        alert("Please fill in required fields")
-        return
-    }
-
-    if (editingUser.value) {
-        Object.assign(editingUser.value, { ...newUser.value })
-    } else {
-        users.value.push({
-        ...newUser.value,
-        id: users.value.length + 1,
-        })
-    }
-
-    showModal.value = false
-}
-
-function deleteUser(id: number) {
-    users.value = users.value.filter((u) => u.id !== id)
-}
-
+// --- Methods ---
 function openDetails(user: UserProfile) {
     selectedUser.value = user
-    // reset requirement filters/search when opening details
+    // Reset requirement filters/search when opening details
     requirementSearch.value = ""
     requirementFilter.value = "All"
     isRequirementFilterOpen.value = false
     showDetailsModal.value = true
+    
+    // If you want to load detailed data, you can call the API here:
+    // loadUserDetails(user.id)
 }
 
 function exportReceipt(user: UserProfile | null) {
     if (!user) return
-    alert(`Exporting receipt for ${user.firstName} ${user.lastName}`)
+    alert(`Exporting receipt for ${user.full_name}`)
+    // Implement actual export logic here
 }
 
 function scanQR() {
-    const scannedData = {
-        firstName: "Scanned",
-        middleName: "QR",
-        lastName: "Student",
-        requirement: "Membership Fee - Semester 1",
-        amount: 500,
-    }
-
-    const newId = records.value.length + 1
-
-    records.value.push({
-        id: newId,
-        ...scannedData,
-        status: "Paid",
-        method: "QR Scan",
-        date: new Date().toISOString().split("T")[0],
-    })
-
-    alert("QR payment recorded instantly!")
+    alert('QR scanning functionality will be implemented in the future')
 }
 
-type CombinedReq = {
-    name: string
-    amount: number
-    status: "paid" | "unpaid"
-    overdue?: boolean
+function clearFilters() {
+    courseFilter.value = 'All'
+    search.value = ''
+}
+
+// Combined requirements for detail view
+type CombinedReq = PaymentRequirement & {
+    status: 'paid' | 'unpaid'
     date: string
 }
 
 const combinedRequirements = computed<CombinedReq[]>(() => {
     if (!selectedUser.value) return []
 
-    // paid items: amount = 100 + index*50
-    const paid: CombinedReq[] = selectedUser.value.paidRequirements.map((name, i) => ({
-        name,
-        amount: 100 + i * 50,
-        status: "paid",
-        overdue: false,
-        date: new Date(Date.now() - i * 86400000).toISOString(), // recent past dates
+    const paid: CombinedReq[] = selectedUser.value.paid_requirements.map(req => ({
+        ...req,
+        status: 'paid' as const,
+        date: req.paid_at || new Date().toISOString(),
     }))
 
-    // unpaid items: amount = 150 + index*75
-        const unpaid: CombinedReq[] = selectedUser.value.unpaidRequirements.map((obj, i) => ({
-        name: obj.name,
-        amount: 150 + i * 75,
-        status: "unpaid",
-        overdue: obj.overdue,
-        date: new Date(Date.now() - (i + paid.length) * 86400000).toISOString(),
+    const unpaid: CombinedReq[] = selectedUser.value.unpaid_requirements.map(req => ({
+        ...req,
+        status: 'unpaid' as const,
+        date: req.deadline || new Date().toISOString(),
     }))
 
-    // keep paid first (so Paid shows on top), then unpaid
     return [...paid, ...unpaid]
 })
 
-// computed filteredRequirements used by the combined single-list UI
+// Filtered requirements for detail view
 const filteredRequirements = computed<CombinedReq[]>(() => {
     const all = combinedRequirements.value
 
-    // apply search
+    // Apply search
     const searched = all.filter((r) =>
-        r.name.toLowerCase().includes(requirementSearch.value.toLowerCase())
+        r.title.toLowerCase().includes(requirementSearch.value.toLowerCase())
     )
 
-    // apply filter
+    // Apply filter
     if (requirementFilter.value === "Paid") {
-        return searched.filter((r) => r.status === "paid")
+        return searched.filter((r) => r.status === 'paid')
     } else if (requirementFilter.value === "Unpaid") {
-        return searched.filter((r) => r.status === "unpaid")
+        return searched.filter((r) => r.status === 'unpaid')
     } else if (requirementFilter.value === "Recent") {
-        return [...searched].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+        return [...searched]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 5)
     } else if (requirementFilter.value === "Old") {
-        return [...searched].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5)
+        return [...searched]
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 5)
     }
 
     // All
     return searched
 })
+
+// Load detailed user data (optional - for future enhancement)
+async function loadUserDetails(userId: string | number) {
+    isLoading.value = true
+    try {
+        const response = await fetch(`/user-profiles/${userId}`)
+        const userData = await response.json()
+        selectedUser.value = userData
+    } catch (error) {
+        console.error('Error loading user details:', error)
+    } finally {
+        isLoading.value = false
+    }
+}
+
+// Refresh data
+function refreshData() {
+    emit('refresh-data')
+}
 </script>
 
 <template>
@@ -274,33 +219,31 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-2xl font-bold">User Payment Profiles</h2>
-                <p class="text-muted-foreground">Manage student payment records and requirements</p>
+                <p class="text-muted-foreground">View student payment records and requirements</p>
             </div>
             <div class="flex items-center gap-3">
                 <Button
                     @click="scanQR"
                     variant="outline"
                     class="gap-2"
+                    disabled
                 >
                     <QrCode class="w-4 h-4" /> Scan QR
                 </Button>
-
                 <Button
-                    @click="openAddModal"
+                    @click="refreshData"
+                    variant="outline"
                     class="gap-2"
                 >
-                    <Plus class="w-4 h-4" /> Add User
+                    Refresh Data
                 </Button>
             </div>
         </div>
 
         <!-- Search + Filter -->
         <div class="flex items-center gap-3 mb-6">
-        
             <!-- Search -->
-            <div
-                class="flex items-center flex-1 bg-muted border border-border rounded-lg px-3 py-2"
-            >
+            <div class="flex items-center flex-1 bg-muted border border-border rounded-lg px-3 py-2">
                 <Search class="w-4 h-4 text-muted-foreground" />
                 <input
                     v-model="search"
@@ -345,33 +288,44 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
             <!-- Clear Filter -->
             <Button
                 v-if="courseFilter !== 'All' || search"
-                @click="courseFilter = 'All'; search = ''"
+                @click="clearFilters"
                 variant="outline"
             >
                 Clear
             </Button>
         </div>
 
+        <!-- Loading State -->
+        <div v-if="isLoading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p class="text-muted-foreground mt-2">Loading user profiles...</p>
+        </div>
+
         <!-- User Cards -->
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-else class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div
                 v-for="user in filteredUsers"
                 :key="user.id"
                 class="bg-card rounded-xl border border-border p-5"
             >
-
                 <!-- Profile Info -->
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <span class="text-primary font-bold text-sm">
-                        {{ user.firstName.charAt(0) }}{{ user.lastName.charAt(0) }}
+                            {{ user.first_name.charAt(0) }}{{ user.last_name.charAt(0) }}
                         </span>
                     </div>
                     <div>
                         <h3 class="font-semibold">
-                        {{ user.firstName }} {{ user.lastName }}
+                            {{ user.full_name }}
                         </h3>
-                        <p class="text-sm text-muted-foreground">{{ user.course }}</p>
+                        <p class="text-sm text-muted-foreground">{{ user.program }}</p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ user.student_id }} • {{ user.year }}
+                            <Badge v-if="user.type === 'manual'" variant="outline" class="ml-1 text-xs">
+                                Manual
+                            </Badge>
+                        </p>
                     </div>
                 </div>
 
@@ -379,26 +333,25 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
                 <div class="text-sm space-y-1 mb-4">
                     <p>
                         <span class="font-medium text-muted-foreground">Balance:</span>
-                        <span class="ml-2 font-semibold">₱{{ user.totalBalance }}</span>
+                        <span class="ml-2 font-semibold">₱{{ user.total_balance.toLocaleString() }}</span>
                     </p>
                     <p>
                         <span class="font-medium text-muted-foreground">Paid:</span>
-                        <span class="ml-2 text-green-600 font-semibold">₱{{ user.totalPaid }}</span>
+                        <span class="ml-2 text-green-600 font-semibold">₱{{ user.total_paid.toLocaleString() }}</span>
                     </p>
                     <p>
                         <span class="font-medium text-muted-foreground">Unpaid:</span>
-                        <span class="ml-2 text-red-600 font-semibold">₱{{ user.totalUnpaid }}</span>
+                        <span class="ml-2 text-red-600 font-semibold">₱{{ user.total_unpaid.toLocaleString() }}</span>
                     </p>
                 </div>
 
                 <!-- Requirement Progress -->
                 <div class="grid grid-cols-2 gap-2 mb-4">
-                
                     <!-- Paid -->
                     <div
                         class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex flex-col items-center justify-center py-3"
                     >
-                        <span class="text-lg font-bold">✔ {{ user.paidRequirements.length }}</span>
+                        <span class="text-lg font-bold">✔ {{ user.paid_requirements_count }}</span>
                         <span class="text-xs">Paid Requirements</span>
                     </div>
 
@@ -406,7 +359,7 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
                     <div
                         class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 rounded-lg flex flex-col items-center justify-center py-3"
                     >
-                        <span class="text-lg font-bold">✘ {{ user.unpaidRequirements.length }}</span>
+                        <span class="text-lg font-bold">✘ {{ user.unpaid_requirements_count }}</span>
                         <span class="text-xs">Unpaid Requirements</span>
                     </div>
                 </div>
@@ -419,108 +372,14 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
                     >
                         <Eye class="w-4 h-4" /> View Details
                     </Button>
-                    <Button
-                        @click="openEditModal(user)"
-                        variant="ghost"
-                        size="icon"
-                    >
-                        <Pencil class="w-4 h-4" />
-                    </Button>
-                    <Button
-                        @click="deleteUser(user.id)"
-                        variant="ghost"
-                        size="icon"
-                    >
-                        <Trash2 class="w-4 h-4" />
-                    </Button>
                 </div>
             </div>
         </div>
 
         <!-- Empty state -->
-        <div v-if="filteredUsers.length === 0" class="text-center py-12 text-muted-foreground">
+        <div v-if="filteredUsers.length === 0 && !isLoading" class="text-center py-12 text-muted-foreground">
             <Search class="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No users found</p>
-        </div>
-
-        <!-- Add/Edit User Modal -->
-        <div
-            v-if="showModal"
-            class="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50"
-        >
-            <div class="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold">
-                        {{ editingUser ? "Edit User" : "Add User" }}
-                    </h3>
-                    <Button @click="showModal = false" variant="ghost" size="icon">
-                        <X class="w-5 h-5" />
-                    </Button>
-                </div>
-                <form @submit.prevent="saveUser" class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">First Name</label>
-                        <input
-                            v-model="newUser.firstName"
-                            type="text"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Last Name</label>
-                        <input
-                            v-model="newUser.lastName"
-                            type="text"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Course</label>
-                        <select
-                            v-model="newUser.course"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        >
-                            <option disabled value="">Select course</option>
-                            <option v-for="option in filterOptions.slice(1)" :key="option" :value="option">
-                                {{ option }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Year</label>
-                        <input
-                            v-model="newUser.year"
-                            type="text"
-                            placeholder="e.g. 2nd Year"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm text-muted-foreground mb-1">Section</label>
-                        <input
-                            v-model="newUser.section"
-                            type="text"
-                            placeholder="e.g. A"
-                            class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                        />
-                    </div>
-
-                    <div class="flex justify-end gap-2 mt-6">
-                        <Button
-                            type="button"
-                            @click="showModal = false"
-                            variant="outline"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                        >
-                            {{ editingUser ? "Save Changes" : "Add" }}
-                        </Button>
-                    </div>
-                </form>
-            </div>
+            <p>No users with payment records found</p>
         </div>
 
         <!-- View Details Modal -->
@@ -531,12 +390,19 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
             <div
                 class="bg-card border border-border p-8 rounded-xl shadow-lg w-[950px] max-h-[95vh] overflow-y-auto flex flex-col"
             >
-                
                 <!-- Header -->
                 <div class="flex justify-between items-center border-b border-border pb-4 mb-6">
-                    <h2 class="text-2xl font-bold">
-                        {{ selectedUser.firstName }} {{ selectedUser.lastName }}
-                    </h2>
+                    <div>
+                        <h2 class="text-2xl font-bold">
+                            {{ selectedUser.full_name }}
+                        </h2>
+                        <p class="text-muted-foreground">
+                            {{ selectedUser.student_id }} • {{ selectedUser.program }} • {{ selectedUser.year }}
+                            <Badge v-if="selectedUser.type === 'manual'" variant="outline" class="ml-2">
+                                Manual Entry
+                            </Badge>
+                        </p>
+                    </div>
                     <Button
                         @click="showDetailsModal = false"
                         variant="ghost"
@@ -548,36 +414,39 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
 
                 <!-- Two Column Layout -->
                 <div class="grid grid-cols-2 gap-6">
-                
                     <!-- Left Column: Student Info -->
                     <div class="space-y-3 bg-muted p-5 rounded-lg border border-border">
                         <p class="text-lg">
-                            <span class="font-semibold text-muted-foreground">Course:</span>
-                            <span class="ml-2 font-bold">{{ selectedUser.course }}</span>
+                            <span class="font-semibold text-muted-foreground">Program:</span>
+                            <span class="ml-2 font-bold">{{ selectedUser.program }}</span>
                         </p>
                         <p class="text-lg">
-                            <span class="font-semibold text-muted-foreground">Year & Section:</span>
-                            <span class="ml-2 font-bold">{{ selectedUser.year }} - {{ selectedUser.section }}</span>
+                            <span class="font-semibold text-muted-foreground">Year:</span>
+                            <span class="ml-2 font-bold">{{ selectedUser.year }}</span>
+                        </p>
+                        <p class="text-lg">
+                            <span class="font-semibold text-muted-foreground">Student ID:</span>
+                            <span class="ml-2 font-bold">{{ selectedUser.student_id || 'N/A' }}</span>
                         </p>
                         <p class="text-lg">
                             <span class="font-semibold text-muted-foreground">Total Balance:</span>
-                            <span class="ml-2 font-bold text-blue-600">₱{{ selectedUser.totalBalance }}</span>
+                            <span class="ml-2 font-bold text-blue-600">₱{{ selectedUser.total_balance.toLocaleString() }}</span>
                         </p>
                         <p class="text-lg">
                             <span class="font-semibold text-muted-foreground">Total Paid:</span>
-                            <span class="ml-2 font-bold text-green-600">₱{{ selectedUser.totalPaid }}</span>
+                            <span class="ml-2 font-bold text-green-600">₱{{ selectedUser.total_paid.toLocaleString() }}</span>
                         </p>
                         <p class="text-lg">
                             <span class="font-semibold text-muted-foreground">Total Unpaid:</span>
-                            <span class="ml-2 font-bold text-red-600">₱{{ selectedUser.totalUnpaid }}</span>
+                            <span class="ml-2 font-bold text-red-600">₱{{ selectedUser.total_unpaid.toLocaleString() }}</span>
                         </p>
                         <p class="text-lg">
                             <span class="font-semibold text-muted-foreground">Paid Requirements:</span>
-                            <span class="ml-2 font-bold text-green-600">{{ selectedUser.paidRequirements.length }}</span>
+                            <span class="ml-2 font-bold text-green-600">{{ selectedUser.paid_requirements_count }}</span>
                         </p>
                         <p class="text-lg">
                             <span class="font-semibold text-muted-foreground">Unpaid Requirements:</span>
-                            <span class="ml-2 font-bold text-red-600">{{ selectedUser.unpaidRequirements.length }}</span>
+                            <span class="ml-2 font-bold text-red-600">{{ selectedUser.unpaid_requirements_count }}</span>
                         </p>
                     </div>
 
@@ -626,20 +495,33 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
                                 :key="i"
                                 class="p-4 rounded-lg border border-border bg-muted flex justify-between items-center"
                             >
-                                <div>
+                                <div class="flex-1">
                                     <p class="font-medium">
                                         <span v-if="req.status === 'paid'" class="text-green-600">✔</span>
                                         <span v-else class="text-red-600">✘</span>
-                                        {{ req.name }}
+                                        {{ req.title }}
                                     </p>
-                                    <p class="text-sm text-muted-foreground">
-                                        Date: {{ new Date(req.date).toLocaleDateString() }}
-                                    </p>
-                                    <Badge v-if="req.overdue" variant="destructive" class="mt-1 text-xs">
-                                        Overdue
-                                    </Badge>
+                                    <div class="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                                        <span>Amount: ₱{{ req.amount.toLocaleString() }}</span>
+                                        <span v-if="req.amount_paid">Paid: ₱{{ req.amount_paid.toLocaleString() }}</span>
+                                        <span v-if="req.paid_at">Date: {{ new Date(req.paid_at).toLocaleDateString() }}</span>
+                                        <span v-if="req.deadline">Due: {{ new Date(req.deadline).toLocaleDateString() }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <Badge v-if="req.overdue" variant="destructive" class="text-xs">
+                                            Overdue
+                                        </Badge>
+                                        <Badge v-if="req.payment_method" variant="outline" class="text-xs">
+                                            {{ req.payment_method }}
+                                        </Badge>
+                                        <Badge v-if="req.status === 'paid'" variant="secondary" class="text-xs">
+                                            Paid
+                                        </Badge>
+                                        <Badge v-else variant="outline" class="text-xs">
+                                            Unpaid
+                                        </Badge>
+                                    </div>
                                 </div>
-                                <p class="font-semibold">₱{{ req.amount }}</p>
                             </div>
                         </div>
 
@@ -651,13 +533,48 @@ const filteredRequirements = computed<CombinedReq[]>(() => {
                     </div>
                 </div>
 
+                <!-- Payment History Section -->
+                <div class="mt-6 border-t border-border pt-4">
+                    <h3 class="text-lg font-semibold mb-4">Payment History</h3>
+                    <div class="space-y-3 max-h-[300px] overflow-y-auto">
+                        <div
+                            v-for="payment in selectedUser.payment_history"
+                            :key="payment.id"
+                            class="p-3 rounded-lg border border-border bg-muted/50 flex justify-between items-center"
+                        >
+                            <div>
+                                <p class="font-medium">{{ payment.requirement_title }}</p>
+                                <p class="text-sm text-muted-foreground">
+                                    {{ payment.paid_at ? new Date(payment.paid_at).toLocaleDateString() : 'No date' }} • 
+                                    {{ payment.payment_method || 'No method' }}
+                                </p>
+                                <p class="text-xs text-muted-foreground" v-if="payment.notes">
+                                    Notes: {{ payment.notes }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold">₱{{ payment.amount_paid.toLocaleString() }}</p>
+                                <Badge 
+                                    :variant="payment.status === 'paid' ? 'default' : 'outline'"
+                                    class="text-xs"
+                                >
+                                    {{ payment.status }}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="selectedUser.payment_history.length === 0" class="text-center py-4 text-muted-foreground">
+                        <p>No payment history found</p>
+                    </div>
+                </div>
+
                 <!-- Footer -->
                 <div class="flex justify-end gap-2 mt-6 border-t border-border pt-4">
                     <Button
                         @click="exportReceipt(selectedUser)"
                         class="gap-2"
                     >
-                        <Download class="w-4 h-4" /> Export
+                        <Download class="w-4 h-4" /> Export Receipt
                     </Button>
                     <Button
                         @click="showDetailsModal = false"

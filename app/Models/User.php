@@ -126,4 +126,21 @@ class User extends Authenticatable
                     ->withPivot('paid_at', 'amount_paid')
                     ->withTimestamps();
     }
+
+    /**
+     * Direct relationship with payments
+     */
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get manual payments (payments without user_id but with matching student_id)
+     */
+    public function manualPayments()
+    {
+        return $this->hasMany(Payment::class, 'student_id', 'student_id')
+                    ->whereNull('user_id');
+    }
 }

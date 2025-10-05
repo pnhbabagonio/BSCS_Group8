@@ -13,6 +13,7 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequirementController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\UserProfileController; // Add this line
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +102,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     // Main payment page with tabs
     Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
+    
     // Requirements CRUD routes
     Route::get('/requirements', [RequirementController::class, 'index'])->name('requirements.index');
     Route::post('/requirements', [RequirementController::class, 'store'])->name('requirements.store');
@@ -116,6 +118,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Additional payment routes
     Route::get('/records/stats', [PaymentController::class, 'getStats'])->name('records.stats');
     Route::get('/records/search', [PaymentController::class, 'search'])->name('records.search');
+
+    // User Profiles routes - ADD THESE NEW ROUTES
+    Route::get('/user-profiles', [UserProfileController::class, 'index'])->name('user-profiles.index');
+    Route::get('/user-profiles/{id}', [UserProfileController::class, 'show'])->name('user-profiles.show');
 });
 
 /*
