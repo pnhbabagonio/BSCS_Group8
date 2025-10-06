@@ -114,17 +114,34 @@ const filteredUsers = computed(() => {
 })
 
 // --- Methods ---
+// function openDetails(user: UserProfile) {
+//     selectedUser.value = user
+//     // Reset requirement filters/search when opening details
+//     requirementSearch.value = ""
+//     requirementFilter.value = "All"
+//     isRequirementFilterOpen.value = false
+//     showDetailsModal.value = true
+    
+//     // If you want to load detailed data, you can call the API here:
+//     // loadUserDetails(user.id)
+// }
+
+
+// This is a temporary method for testing
 function openDetails(user: UserProfile) {
+    console.log("Opening details for user:", user)
+    console.log("Paid requirements:", user.paid_requirements)
+    console.log("Unpaid requirements:", user.unpaid_requirements)
+    console.log("Payment history:", user.payment_history)
+    
     selectedUser.value = user
     // Reset requirement filters/search when opening details
     requirementSearch.value = ""
     requirementFilter.value = "All"
     isRequirementFilterOpen.value = false
     showDetailsModal.value = true
-    
-    // If you want to load detailed data, you can call the API here:
-    // loadUserDetails(user.id)
 }
+
 
 function exportReceipt(user: UserProfile | null) {
     if (!user) return

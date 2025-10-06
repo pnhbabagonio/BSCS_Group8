@@ -140,6 +140,10 @@ class User extends Authenticatable
      */
     public function manualPayments()
     {
+        if (!$this->student_id) {
+            return $this->hasMany(Payment::class)->whereNull('user_id')->whereNull('student_id');
+        }
+        
         return $this->hasMany(Payment::class, 'student_id', 'student_id')
                     ->whereNull('user_id');
     }
