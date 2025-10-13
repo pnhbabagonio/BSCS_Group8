@@ -76,20 +76,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Main Event Management Page - Use EventController to load data
     Route::get('/event-management', [EventController::class, 'index'])->name('event-management');
     
-    // Event API Routes for CRUD operations
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
     Route::get('/events/{event}', [EventController::class, 'show'])->name('events.show');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
-    
-    // Additional API routes
-    Route::get('/api/events/stats', [EventController::class, 'getStats'])->name('events.stats');
-    
-    // Other event-related routes
-    Route::get('/attendees', [AttendeeController::class, 'index'])->name('attendees');
-    Route::post('/attendees', [AttendeeController::class, 'store'])->name('attendees.store');
-    Route::get('/attendees/export', [AttendeeController::class, 'export'])->name('attendees.export');
-    Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+    // Manual Registration Routes
+    Route::get('/user-management-data', [UserController::class, 'getUsersForRegistration'])->name('user-management.data');
+    Route::get('/events/{event}/attendees', [EventController::class, 'getEventAttendees'])->name('events.attendees');
+    Route::post('/events/{event}/register-attendees', [EventController::class, 'registerAttendees'])->name('events.register-attendees');
 });
 
 

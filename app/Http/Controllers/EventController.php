@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use App\Models\Attendee;
 
 class EventController extends Controller
 {
@@ -140,4 +141,74 @@ class EventController extends Controller
             'completed_events' => $completedEvents,
         ]);
     }
+
+    // Add these methods to your EventController.php
+
+public function getEventAttendees(Event $event)
+{
+    $attendees = $event->attendees()->with('user')->get()->map(function ($attendee) {
+        return [
+            'id' => $attendee->id,
+            'user_id' => $attendee->user_id,
+            'event_id' => $attendee->event_id,
+            'user_name' => $attendee->user->name,
+            'user_email' => $attendee->user->email,
+            'student_id' => $attendee->user->student_id,
+            'program' => $attendee->user->program,
+            'attendance_status' => $attendee->attendance_status,
+            'registered_at' => $attendee->registered_at->format('Y-m-d H:i'),
+        ];
+    });
+
+    return response()->json([
+        'attendees' => $attendees
+    ]);
+}
+
+public function registerAttendees(Request $request, Event $event)
+{
+    $validated = $request->validate([
+        'user_ids' => ['required', 'array', 'min:1'],
+        'user_ids.*' => ['required', 'integer', 'exists:users,id'],
+    ]);
+
+    // Check capacity
+    $currentRegistered = $event->attendees()->where('attendance_status', '!=', 'cancelled')->count();
+    $remainingCapacity = $event->capacity - $currentRegistered;
+
+    if (count($validated['user_ids']) > $remainingCapacity) {
+        return back()->withErrors([
+            'general' => "Cannot register all selected users. Only {$remainingCapacity} spots remaining."
+        ]);
+    }
+
+    $registeredUsers = [];
+
+    foreach ($validated['user_ids'] as $userId) {
+        // Check if user is already registered
+        $existingAttendee = $event->attendees()->where('user_id', $userId)->first();
+
+        if ($existingAttendee) {
+            // Update existing registration if cancelled
+            if ($existingAttendee->attendance_status === 'cancelled') {
+                $existingAttendee->update([
+                    'attendance_status' => 'registered',
+                    'registered_at' => now(),
+                ]);
+                $registeredUsers[] = $userId;
+            }
+        } else {
+            // Create new registration
+            Attendee::create([
+                'event_id' => $event->id,
+                'user_id' => $userId,
+                'attendance_status' => 'registered',
+                'registered_at' => now(),
+            ]);
+            $registeredUsers[] = $userId;
+        }
+    }
+
+    return back()->with('success', count($registeredUsers) . ' user(s) registered successfully');
+}
 }

@@ -110,4 +110,33 @@ class UserController extends Controller
         $user->delete();
         return redirect()->back()->with('success', 'User deleted successfully!');
     }
+
+    // Add this method to your UserController.php
+
+    // Add this method to your UserController.php
+
+    public function getUsersForRegistration()
+    {
+        $users = User::select('id', 'name', 'email', 'student_id', 'program', 'year', 'role', 'status')
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'student_id' => $user->student_id,
+                    'program' => $user->program,
+                    'year' => $user->year,
+                    'role' => $user->role,
+                    'status' => $user->status,
+                ];
+            });
+
+        return response()->json([
+            'users' => $users
+        ]);
+    }
+    
 }
