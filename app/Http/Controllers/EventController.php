@@ -4,112 +4,108 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Registration;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class EventController extends Controller
 {
+    // Remove the constructor or fix middleware usage
+    // public function __construct()
+    // {
+    //     $this->middleware('auth')->except(['index', 'data', 'show']);
+    // }
+
     public function index(Request $request): Response
     {
-        $status = $request->get('status', 'All');
-
-        $events = Event::with('user')
-            ->when($status !== 'All', function ($query) use ($status) {
-                return $query->where('status', $status);
-            })
-            ->latest()
-            ->get()
-            ->map(function ($event) {
-                return $this->formatEvent($event);
-            });
-
-        return Inertia::render('Event', [
-            'events' => $events, // Make sure this is passed correctly
-            'filters' => $request->only(['status']),
+        return Inertia::render('Events', [
+            'filters' => $request->only(['status', 'search']),
             'stats' => $this->getStats(),
         ]);
     }
 
-    // In your EventController data() method
-    public function data(Request $request)
+    public function data(Request $request): JsonResponse
     {
         $status = $request->get('status', 'All');
+        $search = $request->get('search', '');
         $user = $request->user();
 
-        $events = Event::with(['user', 'registrations'])
+        $events = Event::with(['user', 'registrations.user'])
             ->when($status !== 'All', function ($query) use ($status) {
                 return $query->where('status', $status);
             })
+            ->when($search, function ($query, $search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('venue', 'like', "%{$search}%");
+                });
+            })
             ->latest()
-            ->get()
-            ->map(function ($event) use ($user) {
-                return $this->formatEvent($event, $user);
-            });
+            ->paginate(12);
+
+        $formattedEvents = $events->through(function ($event) use ($user) {
+            return $this->formatEvent($event, $user);
+        });
 
         return response()->json([
-            'events' => $events,
+            'events' => $formattedEvents,
             'stats' => $this->getStats(),
         ]);
     }
 
-    public function store(Request $request)
+    public function show(Request $request, Event $event): JsonResponse
+    {
+        $event->load(['user', 'registrations.user']);
+
+        return response()->json([
+            'event' => $this->formatEvent($event, $request->user()),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'date' => 'required|date',
+            'date' => 'required|date|after:today',
             'time' => 'required|date_format:H:i',
             'venue' => 'required|string|max:255',
             'address' => 'required|string|max:255',
             'status' => 'required|in:Upcoming,Ongoing,Completed',
             'max_capacity' => 'required|integer|min:1',
             'organizer' => 'required|string|max:255',
-        ]);
-
-        $event = Event::create([
-            ...$validated,
-            'user_id' => $request->user()->id,
-            'registered' => 0,
-        ]);
-
-        // Return the created event in the response
-        return redirect()->route('events')->with([
-            'success' => 'Event created successfully',
-            'created_event' => $this->formatEvent($event) // Return the formatted event
-        ]);
-    }
-
-    public function updateRegistration(Request $request, Event $event)
-    {
-        // Authorization check - only event owner can update
-        if ($event->user_id !== $request->user()->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated = $request->validate([
-            'registered' => 'required|integer|min:0|max:' . $event->max_capacity,
+            'image_url' => 'nullable|url|max:500',
+            'registration_deadline' => 'nullable|date|after:today',
         ]);
 
         try {
-            $event->update([
-                'registered' => $validated['registered'],
+            $event = Event::create([
+                ...$validated,
+                'user_id' => $request->user()->id,
+                'registered' => 0,
             ]);
 
-            // Return a simple redirect back instead of JSON
-            return back()->with('success', 'Registration count updated successfully');
+            return redirect()->route('events.index')
+                ->with('success', 'Event created successfully')
+                ->with('created_event_id', $event->id);
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to update registration');
+            Log::error('Event creation failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to create event');
         }
     }
 
-
     public function update(Request $request, Event $event)
     {
-        // Manual authorization check
-        if ($event->user_id !== $request->user()->id) {
-            return redirect()->back()->with('error', 'Unauthorized to update this event');
+        if (!Gate::allows('update-event', $event)) {
+            abort(403, 'Unauthorized to update this event');
         }
 
         $validated = $request->validate([
@@ -122,59 +118,210 @@ class EventController extends Controller
             'status' => 'required|in:Upcoming,Ongoing,Completed',
             'max_capacity' => 'required|integer|min:1',
             'organizer' => 'required|string|max:255',
+            'image_url' => 'nullable|url|max:500',
+            'registration_deadline' => 'nullable|date',
         ]);
 
-        $event->update($validated);
-
-        return redirect()->back()->with('success', 'Event updated successfully');
+        try {
+            $event->update($validated);
+            return back()->with('success', 'Event updated successfully');
+        } catch (\Exception $e) {
+            Log::error('Event update failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update event');
+        }
     }
 
-    public function destroy(Request $request, Event $event)
+    public function destroy(Request $request, Event $event): RedirectResponse
     {
-        // Manual authorization check
+        // Manual authorization
         if ($event->user_id !== $request->user()->id) {
-            return redirect()->back()->with('error', 'Unauthorized to delete this event');
+            abort(403, 'Unauthorized to delete this event');
         }
 
-        $event->delete();
+        try {
+            $event->registrations()->delete();
+            $event->delete();
 
-        return redirect()->back()->with('success', 'Event deleted successfully');
+            return redirect()->route('events.index')
+                ->with('success', 'Event deleted successfully');
+        } catch (\Exception $e) {
+            Log::error('Event deletion failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete event');
+        }
+    }
+
+    public function myEvents(Request $request): JsonResponse
+    {
+        $events = Event::with(['user', 'registrations'])
+            ->where('user_id', $request->user()->id)
+            ->latest()
+            ->paginate(10);
+
+        $formattedEvents = $events->through(function ($event) use ($request) {
+            return $this->formatEvent($event, $request->user());
+        });
+
+        return response()->json([
+            'events' => $formattedEvents,
+        ]);
+    }
+
+    public function registeredEvents(Request $request): JsonResponse
+    {
+        $eventIds = Registration::where('user_id', $request->user()->id)
+            ->whereIn('status', ['registered', 'waitlisted'])
+            ->pluck('event_id');
+
+        $events = Event::with(['user', 'registrations'])
+            ->whereIn('id', $eventIds)
+            ->latest()
+            ->paginate(10);
+
+        $formattedEvents = $events->through(function ($event) use ($request) {
+            return $this->formatEvent($event, $request->user());
+        });
+
+        return response()->json([
+            'events' => $formattedEvents,
+        ]);
     }
 
     private function getStats(): array
     {
-        return [
+        $user = Auth::user(); // Use Auth facade instead of auth() helper
+
+        $baseStats = [
             'total_events' => Event::count(),
-            'active_registrations' => Event::sum('registered'),
             'upcoming_events' => Event::where('status', 'Upcoming')->count(),
-            'average_attendance' => Event::where('status', 'Completed')
-                ->avg('registered') ?? 0,
+            'ongoing_events' => Event::where('status', 'Ongoing')->count(),
+            'completed_events' => Event::where('status', 'Completed')->count(),
+            'total_registrations' => Registration::whereIn('status', ['registered', 'waitlisted'])->count(),
+            'average_attendance' => round(Event::where('status', 'Completed')->avg('registered') ?? 0, 1),
         ];
+
+        // Add user-specific stats if authenticated
+        if ($user) {
+            $baseStats['my_events'] = Event::where('user_id', $user->id)->count();
+            $baseStats['my_registrations'] = Registration::where('user_id', $user->id)
+                ->whereIn('status', ['registered', 'waitlisted'])
+                ->count();
+            $baseStats['my_attended_events'] = Registration::where('user_id', $user->id)
+                ->where('status', 'attended')
+                ->count();
+        }
+
+        return $baseStats;
     }
 
-    // Update the formatEvent method to include registration data
     private function formatEvent(Event $event, $user = null): array
     {
+        $userRegistration = $user ? $event->registrations
+            ->where('user_id', $user->id)
+            ->first() : null;
+
         return [
             'id' => $event->id,
             'title' => $event->title,
             'description' => $event->description,
-            'date' => $event->formatted_date,
-            'time' => $event->formatted_time,
+            'date' => $event->date->format('Y-m-d'),
+            'formatted_date' => $event->date->format('M j, Y'),
+            'time' => date('g:i A', strtotime($event->time)),
             'venue' => $event->venue,
             'address' => $event->address,
             'status' => $event->status,
-            'registered' => (string) $event->registered, // Keep old for compatibility
-            'registered_count' => $event->registered_count, // NEW
+            'registered_count' => $event->registrations()->where('status', 'registered')->count(),
+            'waitlisted_count' => $event->registrations()->where('status', 'waitlisted')->count(),
             'max_capacity' => $event->max_capacity,
             'organizer' => $event->organizer,
+            'image_url' => $event->image_url,
+            'registration_deadline' => $event->registration_deadline?->format('Y-m-d\TH:i'),
             'user_id' => $event->user_id,
-            'created_at' => $event->created_at,
-            'updated_at' => $event->updated_at,
-            // NEW registration properties
-            'has_available_spots' => $event->has_available_spots,
-            'is_user_registered' => $user ? $event->isUserRegistered($user->id) : false,
-            'is_user_waitlisted' => $user ? $event->isUserWaitlisted($user->id) : false,
+            'created_by' => $event->user->name,
+
+            // Registration status for current user
+            'has_available_spots' => $event->registrations()->where('status', 'registered')->count() < $event->max_capacity,
+            'is_user_registered' => $userRegistration && $userRegistration->status === 'registered',
+            'is_user_waitlisted' => $userRegistration && $userRegistration->status === 'waitlisted',
+            'user_registration_status' => $userRegistration?->status,
+            'user_registration_id' => $userRegistration?->id,
+            'can_register' => $this->canRegister($event, $user),
+            'can_cancel' => $userRegistration ? $this->canCancel($userRegistration) : false,
+            'waitlist_position' => $userRegistration ? $this->getWaitlistPosition($userRegistration) : null,
+
+            // Timestamps
+            'created_at' => $event->created_at->toISOString(),
+            'updated_at' => $event->updated_at->toISOString(),
+
+            // Admin/Owner info
+            'is_owner' => $user ? $event->user_id === $user->id : false,
+            'can_manage' => $user ? $event->user_id === $user->id : false,
         ];
+    }
+
+    /**
+     * Check if user can register for event
+     */
+    private function canRegister(Event $event, $user): bool
+    {
+        if (!$user) return false;
+
+        // Check if already registered
+        $existingRegistration = $event->registrations()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['registered', 'waitlisted'])
+            ->exists();
+
+        if ($existingRegistration) {
+            return false;
+        }
+
+        // Check registration deadline
+        if ($event->registration_deadline && $event->registration_deadline->isPast()) {
+            return false;
+        }
+
+        // Check if event is in the future
+        if ($event->date->isPast()) {
+            return false;
+        }
+
+        // Check if event is active
+        if ($event->status !== 'Upcoming') {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if registration can be cancelled
+     */
+    private function canCancel($registration): bool
+    {
+        if ($registration->status === 'cancelled') {
+            return false;
+        }
+
+        // Allow cancellation up to 24 hours before event or if event is completed
+        if ($registration->event->status === 'Completed') {
+            return false;
+        }
+
+        return $registration->event->date->subHours(24)->isFuture();
+    }
+
+    /**
+     * Get waitlist position
+     */
+    private function getWaitlistPosition($registration): ?int
+    {
+        if ($registration->status !== 'waitlisted') {
+            return null;
+        }
+
+        return Registration::where('event_id', $registration->event_id)
+            ->where('status', 'waitlisted')
+            ->where('registered_at', '<=', $registration->registered_at)
+            ->count();
     }
 }

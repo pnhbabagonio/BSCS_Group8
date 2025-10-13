@@ -19,6 +19,9 @@ Route::get('/', function () {
     return Inertia::render('Welcome');
 })->name('home');
 
+
+
+
 // Forgot password (request reset link)
 Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
     ->middleware('guest')
@@ -66,23 +69,42 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Event routes
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/events', [EventController::class, 'index'])->name('events');
+    Route::get('/events', [EventController::class, 'index'])->name('Events');
     Route::get('/events/data', [EventController::class, 'data'])->name('events.data');
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
     Route::patch('/events/{event}/registration', [EventController::class, 'updateRegistration'])->name('events.registration.update');
+
+    // Add these registration routes
+    Route::post('/events/{event}/register', [RegistrationController::class, 'store'])->name('registrations.store');
+    Route::delete('/events/{event}/register', [RegistrationController::class, 'destroy'])->name('registrations.destroy');
+    Route::get('/events/{event}/registrants', [RegistrationController::class, 'getRegistrants'])->name('registrations.registrants');
+    Route::delete('/events/{event}/registrants/{registration}', [RegistrationController::class, 'removeRegistrant'])->name('registrations.remove');
 });
 
 
-// routes/web.php
+// Authenticated routes
 Route::middleware(['auth'])->group(function () {
-    Route::post('/events/{event}/register', [RegistrationController::class, 'store']);
-    Route::delete('/events/{event}/register', [RegistrationController::class, 'destroy']);
-    Route::get('/events/{event}/registrants', [RegistrationController::class, 'getRegistrants']);
-    Route::delete('/events/{event}/registrants/{registration}', [RegistrationController::class, 'removeRegistrant']);
-});
+    // Event management
+    Route::post('/events', [EventController::class, 'store'])->name('events.store');
+    Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
+    Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
 
+    // User-specific event routes
+    Route::get('/my-events', [EventController::class, 'myEvents'])->name('events.my');
+    Route::get('/registered-events', [EventController::class, 'registeredEvents'])->name('events.registered');
+
+    // Registration routes
+    Route::post('/events/{event}/register', [RegistrationController::class, 'store'])->name('registrations.store');
+    Route::delete('/events/{event}/register', [RegistrationController::class, 'destroy'])->name('registrations.destroy');
+
+    // Admin registration management
+    Route::get('/events/{event}/registrants', [RegistrationController::class, 'getRegistrants'])->name('registrations.registrants');
+    Route::delete('/events/{event}/registrants/{registration}', [RegistrationController::class, 'removeRegistrant'])->name('registrations.remove');
+    Route::post('/events/{event}/registrants/{registration}/attendance', [RegistrationController::class, 'updateAttendance'])->name('registrations.attendance');
+    Route::post('/events/{event}/registrants/{registration}/promote', [RegistrationController::class, 'promoteFromWaitlist'])->name('registrations.promote');
+});
 // Attendee Management Routes
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/attendees', [AttendeeController::class, 'index'])->name('attendees');
