@@ -22,7 +22,7 @@ import {
     Users,
 } from 'lucide-vue-next';
 
-// Define props interface
+// Define props interface based on real data
 interface Props {
     financialSummary: {
         totalBalance: number;
@@ -65,7 +65,7 @@ interface Props {
     notificationCount: number;
 }
 
-// Define props with default values for development
+// Define props with default values
 const props = withDefaults(defineProps<Props>(), {
     financialSummary: () => ({
         totalBalance: 0,
@@ -140,78 +140,40 @@ const quickActions = [
         title: 'Generate QR Code',
         description: 'Create payment QR codes',
         icon: QrCode,
-        href: '/payments/qr-generator', // ✅ opens QrGenerator.vue
+        href: '/payment', // Using existing payment route
         color: 'bg-blue-500 hover:bg-blue-600',
     },
     {
         title: 'Record Payment',
         description: 'Manual payment entry',
         icon: CreditCard,
-        href: '/payments/record', // ✅ opens RecordPayment.vue
+        href: '/records', // Using existing records route
         color: 'bg-green-500 hover:bg-green-600',
     },
     {
         title: 'Add Member',
         description: 'Register new member',
         icon: Users,
-        href: '/members/add',
+        href: '/user-management',
         color: 'bg-purple-500 hover:bg-purple-600',
     },
     {
         title: 'Create Event',
         description: 'Setup new event',
         icon: Plus,
-        href: '/events/create',
+        href: '/event-management',
         color: 'bg-orange-500 hover:bg-orange-600',
     },
 ];
 </script>
 
 <template>
-
     <Head title="Dashboard" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
             <!-- Header with Notifications and Quick Actions -->
             <div class="mb-4 flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-foreground">PSITS Nexus Dashboard</h1>
-                    <p class="text-muted-foreground">Welcome to your financial management platform</p>
-                </div>
-
-                <div class="flex items-center gap-3">
-                    <!-- Notifications Bell -->
-                    <div class="relative">
-                        <Button variant="outline" size="icon" class="relative">
-                            <Bell class="h-4 w-4" />
-                            <Badge v-if="notificationCount > 0"
-                                class="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 p-0 text-xs hover:bg-red-600">
-                                {{ notificationCount }}
-                            </Badge>
-                        </Button>
-                    </div>
-
-                    <!-- Quick Actions Dropdown -->
-                    <DropdownMenu>
-                        <DropdownMenuTrigger as-child>
-                            <Button class="gap-2">
-                                <Plus class="h-4 w-4" />
-                                Quick Actions
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" class="w-56">
-                            <DropdownMenuItem v-for="action in quickActions" :key="action.title" class="cursor-pointer"
-                                @click="$inertia.visit(action.href)">
-                                <component :is="action.icon" class="mr-2 h-4 w-4" />
-                                <div>
-                                    <div class="font-medium">{{ action.title }}</div>
-                                    <div class="text-xs text-muted-foreground">{{ action.description }}</div>
-                                </div>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
             </div>
 
             <!-- Dashboard Widgets -->
@@ -222,7 +184,7 @@ const quickActions = [
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-blue-100">Total Balance</p>
-                                <p class="text-2xl font-bold">₱{{ financialSummary.totalBalance.toLocaleString() }}</p>
+                                <p class="text-2xl font-bold">₱{{ financialSummary.totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
                             </div>
                             <DollarSign class="h-8 w-8 text-blue-200" />
                         </div>
@@ -232,8 +194,7 @@ const quickActions = [
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-green-100">Membership Fees</p>
-                                <p class="text-2xl font-bold">₱{{ financialSummary.membershipFees.toLocaleString() }}
-                                </p>
+                                <p class="text-2xl font-bold">₱{{ financialSummary.membershipFees.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
                             </div>
                             <UserCheck class="h-8 w-8 text-green-200" />
                         </div>
@@ -243,8 +204,7 @@ const quickActions = [
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-orange-100">Monthly Expenses</p>
-                                <p class="text-2xl font-bold">₱{{ financialSummary.monthlyExpenses.toLocaleString() }}
-                                </p>
+                                <p class="text-2xl font-bold">₱{{ financialSummary.monthlyExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
                             </div>
                             <CreditCard class="h-8 w-8 text-orange-200" />
                         </div>
@@ -254,7 +214,7 @@ const quickActions = [
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-purple-100">Total Members</p>
-                                <p class="text-2xl font-bold">{{ financialSummary.totalMembers }}</p>
+                                <p class="text-2xl font-bold">{{ financialSummary.totalMembers.toLocaleString() }}</p>
                             </div>
                             <Users class="h-8 w-8 text-purple-200" />
                         </div>
@@ -266,7 +226,7 @@ const quickActions = [
                     <!-- QR Code Analytics -->
                     <div class="rounded-xl border border-border bg-card p-6">
                         <div class="mb-4 flex items-center justify-between">
-                            <h3 class="text-lg font-semibold">QR Payment Analytics</h3>
+                            <h3 class="text-lg font-semibold">Payment Analytics</h3>
                             <Scan class="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
@@ -275,10 +235,9 @@ const quickActions = [
                                     <div class="rounded-full bg-blue-100 p-2 text-blue-600">
                                         <QrCode class="h-4 w-4" />
                                     </div>
-                                    <span class="text-sm font-medium">Total Scans</span>
+                                    <span class="text-sm font-medium">Total Payments</span>
                                 </div>
-                                <p class="text-2xl font-bold text-blue-600">{{ qrAnalytics.totalScans.toLocaleString()
-                                    }}</p>
+                                <p class="text-2xl font-bold text-blue-600">{{ qrAnalytics.totalScans.toLocaleString() }}</p>
                             </div>
                             <div class="rounded-lg bg-muted/50 p-4">
                                 <div class="mb-2 flex items-center gap-2">
@@ -288,8 +247,7 @@ const quickActions = [
                                     <span class="text-sm font-medium">Success Rate</span>
                                 </div>
                                 <p class="text-2xl font-bold text-green-600">
-                                    {{ qrAnalytics.totalScans > 0 ? ((qrAnalytics.successfulPayments /
-                                        qrAnalytics.totalScans) * 100).toFixed(1) : 0 }}%
+                                    {{ qrAnalytics.totalScans > 0 ? ((qrAnalytics.successfulPayments / qrAnalytics.totalScans) * 100).toFixed(1) : 0 }}%
                                 </p>
                             </div>
                             <div class="rounded-lg bg-muted/50 p-4">
@@ -299,15 +257,14 @@ const quickActions = [
                                     </div>
                                     <span class="text-sm font-medium">Avg. Payment</span>
                                 </div>
-                                <p class="text-2xl font-bold text-yellow-600">₱{{
-                                    qrAnalytics.averagePaymentAmount.toFixed(2) }}</p>
+                                <p class="text-2xl font-bold text-yellow-600">₱{{ qrAnalytics.averagePaymentAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
                             </div>
                             <div class="rounded-lg bg-muted/50 p-4">
                                 <div class="mb-2 flex items-center gap-2">
                                     <div class="rounded-full bg-red-100 p-2 text-red-600">
                                         <Activity class="h-4 w-4" />
                                     </div>
-                                    <span class="text-sm font-medium">Failed Scans</span>
+                                    <span class="text-sm font-medium">Failed Payments</span>
                                 </div>
                                 <p class="text-2xl font-bold text-red-600">{{ qrAnalytics.failedScans }}</p>
                             </div>
@@ -324,8 +281,7 @@ const quickActions = [
                             <div class="space-y-2">
                                 <div class="flex justify-between text-sm">
                                     <span>Active Members</span>
-                                    <span class="font-medium">{{ engagementData.activeMembers }}/{{
-                                        financialSummary.totalMembers }}</span>
+                                    <span class="font-medium">{{ engagementData.activeMembers }}/{{ financialSummary.totalMembers }}</span>
                                 </div>
                                 <div class="h-2 w-full rounded-full bg-muted">
                                     <div class="h-2 rounded-full bg-blue-500"
@@ -372,11 +328,11 @@ const quickActions = [
 
                 <!-- Main Content Grid -->
                 <div class="grid gap-6 lg:grid-cols-3">
-                    <!-- Recent QR Transactions -->
+                    <!-- Recent Transactions -->
                     <div class="rounded-xl border border-border bg-card p-6 lg:col-span-2">
                         <div class="mb-4 flex items-center justify-between">
-                            <h3 class="text-lg font-semibold">Recent QR Transactions</h3>
-                            <Button variant="outline" size="sm">
+                            <h3 class="text-lg font-semibold">Recent Transactions</h3>
+                            <Button variant="outline" size="sm" @click="$inertia.visit('/records')">
                                 <Eye class="mr-2 h-4 w-4" />
                                 View All
                             </Button>
@@ -386,24 +342,23 @@ const quickActions = [
                                 class="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                                 <div class="flex items-center gap-3">
                                     <div class="rounded-full bg-green-100 p-2 text-green-600">
-                                        <QrCode class="h-4 w-4" />
+                                        <CreditCard class="h-4 w-4" />
                                     </div>
                                     <div>
                                         <p class="text-sm font-medium">{{ transaction.description }}</p>
                                         <div class="flex items-center gap-2 text-xs text-muted-foreground">
                                             <span>{{ transaction.date }}</span>
-                                            <Badge variant="outline" class="text-xs">{{ transaction.type }}</Badge>
+                                            <Badge variant="outline" class="text-xs capitalize">{{ transaction.type }}</Badge>
                                             <Badge variant="secondary" class="text-xs">{{ transaction.method }}</Badge>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="font-semibold text-green-600">+₱{{ transaction.amount.toLocaleString() }}
-                                </div>
+                                <div class="font-semibold text-green-600">+₱{{ transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</div>
                             </div>
                         </div>
                         <!-- Show message when no transactions -->
                         <div v-if="recentTransactions.length === 0" class="text-center py-8 text-muted-foreground">
-                            <QrCode class="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <CreditCard class="h-12 w-12 mx-auto mb-4 opacity-50" />
                             <p>No recent transactions found</p>
                         </div>
                     </div>
@@ -441,7 +396,7 @@ const quickActions = [
                         <!-- Event List -->
                         <div class="mt-4 space-y-2">
                             <h4 class="mb-2 text-sm font-medium">Upcoming Events</h4>
-                            <div v-for="event in calendarEvents" :key="event.date"
+                            <div v-for="event in calendarEvents" :key="event.date + event.title"
                                 class="flex items-center gap-2 rounded bg-muted/50 p-2 text-xs">
                                 <div :class="[
                                     'h-2 w-2 rounded-full',
@@ -449,9 +404,10 @@ const quickActions = [
                                     event.type === 'meeting' ? 'bg-green-500' : '',
                                     event.type === 'deadline' ? 'bg-red-500' : '',
                                     event.type === 'event' ? 'bg-purple-500' : '',
+                                    !['workshop', 'meeting', 'deadline', 'event'].includes(event.type) ? 'bg-gray-500' : '',
                                 ]"></div>
                                 <span class="font-medium">{{ event.date }}</span>
-                                <span>{{ event.title }}</span>
+                                <span class="truncate">{{ event.title }}</span>
                             </div>
                             <!-- Show message when no events -->
                             <div v-if="calendarEvents.length === 0"
@@ -482,7 +438,7 @@ const quickActions = [
                                     {{ announcement.priority }}
                                 </Badge>
                             </div>
-                            <p class="mb-2 text-xs text-muted-foreground">{{ announcement.content }}</p>
+                            <p class="mb-2 text-xs text-muted-foreground line-clamp-2">{{ announcement.content }}</p>
                             <p class="text-xs text-muted-foreground">{{ announcement.date }}</p>
                         </div>
                     </div>

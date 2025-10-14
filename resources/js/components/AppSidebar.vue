@@ -137,32 +137,6 @@ const footerNavItems: NavItem[] = [
                     </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <!-- Collapsible Financial Management -->
-                <Collapsible class="group/collapsible">
-                    <SidebarMenuItem>
-                        <CollapsibleTrigger as-child>
-                            <SidebarMenuButton>
-                                <CreditCard />
-                                <span>Financial Management</span>
-                                <ChevronRight
-                                    class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                            </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                            <SidebarMenuSub>
-                                <SidebarMenuSubItem v-for="subItem in financialManagementItems" :key="subItem.title">
-                                    <SidebarMenuButton as-child size="sm">
-                                        <Link :href="subItem.href">
-                                        <component :is="subItem.icon" />
-                                        <span>{{ subItem.title }}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                        </CollapsibleContent>
-                    </SidebarMenuItem>
-                </Collapsible>
-
                 <!-- Remaining nav items -->
                 <SidebarMenuItem v-for="item in mainNavItems.slice(1)" :key="item.title">
                     <SidebarMenuButton as-child>

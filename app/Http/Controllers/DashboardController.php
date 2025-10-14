@@ -3,9 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Payment;
+use App\Models\Event;
+use App\Models\Attendee;
+use App\Models\Requirement;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -15,52 +20,63 @@ class DashboardController extends Controller
         $totalMembers = User::count();
         $activeMembers = User::active()->count();
         
-        // Mock data for now - you can replace these with real models later
+        // Real financial data from payments
+        $totalBalance = Payment::where('status', 'paid')->sum('amount_paid');
+        $membershipFees = $this->getMembershipFees();
+        $monthlyExpenses = $this->getMonthlyExpenses();
+        
         $financialSummary = [
-            'totalBalance' => 125750.5, // Replace with real financial data
-            'membershipFees' => 45230.0, // Sum from payments table
-            'monthlyExpenses' => 28350.75, // Sum from expenses table
+            'totalBalance' => $totalBalance,
+            'membershipFees' => $membershipFees,
+            'monthlyExpenses' => $monthlyExpenses,
             'totalMembers' => $totalMembers,
         ];
 
-        // Recent transactions - replace with real transaction model
-        $recentTransactions = [
-            ['id' => 1, 'description' => 'Membership Fee - John Doe', 'amount' => 500.0, 'date' => '2025-01-20', 'type' => 'membership', 'method' => 'QR Code'],
-            ['id' => 2, 'description' => 'Event Registration - Jane Smith', 'amount' => 300.0, 'date' => '2025-01-19', 'type' => 'event', 'method' => 'QR Code'],
-            ['id' => 3, 'description' => 'Workshop Fee - Mike Johnson', 'amount' => 250.0, 'date' => '2025-01-18', 'type' => 'workshop', 'method' => 'QR Code'],
-            ['id' => 4, 'description' => 'Annual Dues - Sarah Lee', 'amount' => 800.0, 'date' => '2025-01-17', 'type' => 'membership', 'method' => 'QR Code'],
-            ['id' => 5, 'description' => 'Seminar Fee - Alex Chen', 'amount' => 150.0, 'date' => '2025-01-16', 'type' => 'seminar', 'method' => 'QR Code'],
-        ];
+        // Real recent transactions
+        $recentTransactions = Payment::with(['user', 'requirement'])
+            ->where('status', 'paid')
+            ->orderBy('paid_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'description' => $payment->requirement ? $payment->requirement->title . ' - ' . $payment->getDisplayNameAttribute() : 'Payment - ' . $payment->getDisplayNameAttribute(),
+                    'amount' => (float) $payment->amount_paid,
+                    'date' => $payment->paid_at ? $payment->paid_at->format('Y-m-d') : 'N/A',
+                    'type' => $payment->requirement ? strtolower($payment->requirement->title) : 'payment',
+                    'method' => $payment->payment_method ?: 'QR Code',
+                ];
+            })->toArray();
 
-        // QR Analytics - replace with real data
-        $qrAnalytics = [
-            'totalScans' => 1247,
-            'successfulPayments' => 1180,
-            'failedScans' => 67,
-            'averagePaymentAmount' => 425.75,
-        ];
+        // Real QR Analytics (using payment data)
+        $qrAnalytics = $this->getQrAnalytics();
 
         // Real engagement data
         $engagementData = [
             'activeMembers' => $activeMembers,
-            'eventAttendance' => 82.5, // Calculate from events/attendees
-            'paymentCompliance' => 94.2, // Calculate from payments
+            'eventAttendance' => $this->calculateEventAttendance(),
+            'paymentCompliance' => $this->calculatePaymentCompliance(),
             'platformUsage' => $this->calculatePlatformUsage(),
         ];
 
-        // Calendar events - replace with real events
-        $calendarEvents = [
-            ['date' => 22, 'title' => 'Tech Talk: AI in Business', 'type' => 'workshop'],
-            ['date' => 25, 'title' => 'General Assembly Meeting', 'type' => 'meeting'],
-            ['date' => 28, 'title' => 'Membership Fee Deadline', 'type' => 'deadline'],
-            ['date' => 30, 'title' => 'Industry Night 2025', 'type' => 'event'],
-        ];
+        // Real calendar events from Event model
+        $calendarEvents = Event::where('date', '>=', now()->startOfMonth())
+            ->where('date', '<=', now()->endOfMonth())
+            ->get()
+            ->map(function ($event) {
+                return [
+                    'date' => $event->date->day,
+                    'title' => $event->title,
+                    'type' => strtolower($event->category),
+                ];
+            })->toArray();
 
-        // Announcements
+        // Real announcements (you can create an Announcement model later)
         $announcements = [
-            ['id' => 1, 'title' => 'New Payment System Live', 'content' => 'QR-based payment system is now fully operational', 'date' => '2025-01-20', 'priority' => 'high'],
-            ['id' => 2, 'title' => 'Membership Drive Extended', 'content' => 'Extended deadline for new member registration', 'date' => '2025-01-19', 'priority' => 'medium'],
-            ['id' => 3, 'title' => 'System Maintenance Notice', 'content' => 'Scheduled maintenance on Jan 25, 2025', 'date' => '2025-01-18', 'priority' => 'low'],
+            ['id' => 1, 'title' => 'Payment System Live', 'content' => 'QR-based payment system is now fully operational with ' . Payment::count() . ' transactions processed.', 'date' => now()->format('Y-m-d'), 'priority' => 'high'],
+            ['id' => 2, 'title' => 'Member Statistics', 'content' => 'Currently have ' . $totalMembers . ' total members with ' . $activeMembers . ' active members.', 'date' => now()->subDay()->format('Y-m-d'), 'priority' => 'medium'],
+            ['id' => 3, 'title' => 'Event Management', 'content' => Event::count() . ' events scheduled. ' . Event::upcoming()->count() . ' upcoming events.', 'date' => now()->subDays(2)->format('Y-m-d'), 'priority' => 'low'],
         ];
 
         return Inertia::render('Dashboard', [
@@ -70,8 +86,78 @@ class DashboardController extends Controller
             'engagementData' => $engagementData,
             'calendarEvents' => $calendarEvents,
             'announcements' => $announcements,
-            'notificationCount' => 3, // Calculate real notifications
+            'notificationCount' => $this->getNotificationCount(),
         ]);
+    }
+
+    /**
+     * Calculate membership fees from requirements
+     */
+    private function getMembershipFees()
+    {
+        return Requirement::where('title', 'like', '%membership%')
+            ->orWhere('title', 'like', '%due%')
+            ->get()
+            ->sum(function ($requirement) {
+                return $requirement->payments()->where('status', 'paid')->sum('amount_paid');
+            });
+    }
+
+    /**
+     * Calculate monthly expenses (for now, using payments from this month)
+     */
+    private function getMonthlyExpenses()
+    {
+        // This is a placeholder - you might want to create an Expense model later
+        // For now, we'll return a portion of total payments as "expenses"
+        return Payment::where('status', 'paid')
+            ->whereMonth('paid_at', now()->month)
+            ->sum('amount_paid') * 0.3; // Assuming 30% of payments are expenses
+    }
+
+    /**
+     * Calculate QR analytics from payment data
+     */
+    private function getQrAnalytics()
+    {
+        $totalPayments = Payment::count();
+        $successfulPayments = Payment::where('status', 'paid')->count();
+        $failedPayments = Payment::where('status', 'unpaid')->count();
+        $averagePayment = Payment::where('status', 'paid')->avg('amount_paid') ?: 0;
+
+        return [
+            'totalScans' => $totalPayments,
+            'successfulPayments' => $successfulPayments,
+            'failedScans' => $failedPayments,
+            'averagePaymentAmount' => (float) $averagePayment,
+        ];
+    }
+
+    /**
+     * Calculate event attendance percentage
+     */
+    private function calculateEventAttendance()
+    {
+        $totalEvents = Event::count();
+        if ($totalEvents === 0) return 0;
+
+        $eventsWithAttendees = Event::has('attendees')->count();
+        return round(($eventsWithAttendees / $totalEvents) * 100, 1);
+    }
+
+    /**
+     * Calculate payment compliance percentage
+     */
+    private function calculatePaymentCompliance()
+    {
+        $totalUsers = User::count();
+        if ($totalUsers === 0) return 0;
+
+        $usersWithPayments = Payment::where('status', 'paid')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        return round(($usersWithPayments / $totalUsers) * 100, 1);
     }
 
     /**
@@ -88,6 +174,18 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get notification count (placeholder - implement your notification system)
+     */
+    private function getNotificationCount()
+    {
+        // Placeholder - implement based on your notification system
+        $pendingPayments = Payment::where('status', 'pending')->count();
+        $upcomingEvents = Event::upcoming()->count();
+        
+        return $pendingPayments + $upcomingEvents;
+    }
+
+    /**
      * Get dashboard statistics
      */
     public function getStats()
@@ -98,6 +196,9 @@ class DashboardController extends Controller
             'student_members' => User::role('student')->count(),
             'admin_members' => User::role('admin')->count(),
             'recent_registrations' => User::where('created_at', '>=', Carbon::now()->subDays(7))->count(),
+            'total_payments' => Payment::count(),
+            'total_payment_amount' => (float) Payment::where('status', 'paid')->sum('amount_paid'),
+            'upcoming_events' => Event::upcoming()->count(),
         ]);
     }
 }
