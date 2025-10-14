@@ -109,7 +109,7 @@ function loadRequirements() {
             preserveScroll: true,
             onSuccess: (page) => {
                 console.log("Requirements data loaded:", page.props)
-                
+
                 if (page.props.requirements && Array.isArray(page.props.requirements)) {
                     requirements.value = page.props.requirements as Requirement[]
                     console.log(`Loaded ${requirements.value.length} requirements with full data`)
@@ -139,7 +139,7 @@ function loadPaymentRecords() {
             preserveScroll: true,
             onSuccess: (page) => {
                 console.log("Payment data loaded:", page.props)
-                
+
                 if (page.props.payments && Array.isArray(page.props.payments)) {
                     payments.value = page.props.payments as PaymentRecord[]
                     console.log(`Loaded ${payments.value.length} payments`)
@@ -147,7 +147,7 @@ function loadPaymentRecords() {
                     console.warn("No payments found in props or invalid format")
                     payments.value = []
                 }
-                
+
                 if (page.props.users && Array.isArray(page.props.users)) {
                     users.value = page.props.users as User[]
                     console.log(`Loaded ${users.value.length} users`)
@@ -175,7 +175,7 @@ function loadUserProfiles() {
             preserveScroll: true,
             onSuccess: (page) => {
                 console.log("User profiles data loaded:", page.props)
-                
+
                 if (page.props.users && Array.isArray(page.props.users)) {
                     userProfiles.value = page.props.users as UserProfile[]
                     console.log(`Loaded ${userProfiles.value.length} user profiles`)
@@ -198,17 +198,17 @@ function loadUserProfiles() {
 async function loadPaymentData() {
     isLoading.value = true
     console.log("Loading all payment data...")
-    
+
     try {
         // Load requirements first
         await loadRequirements()
-        
+
         // Then load payments and users
         await loadPaymentRecords()
-        
+
         // Then load user profiles
         await loadUserProfiles()
-        
+
         console.log("All data loaded successfully")
     } catch (error) {
         console.error('Error loading data:', error)
@@ -235,17 +235,11 @@ onMounted(() => {
         <div class="p-6 text-gray-200">
             <!-- Tabs Navigation -->
             <div class="flex space-x-6 border-b border-gray-800 mb-6">
-                <button
-                    v-for="tab in tabs"
-                    :key="tab.key"
-                    @click="activeTab = tab.key"
-                    class="pb-2"
-                    :class="[
+                <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key" class="pb-2" :class="[
                     activeTab === tab.key
-                        ? 'border-b-2 border-blue-500 text-blue-400'
+                        ? 'border-b-2 border-black text-black'
                         : 'text-gray-400 hover:text-gray-200'
-                    ]"
-                >
+                ]">
                     {{ tab.label }}
                 </button>
             </div>
@@ -254,31 +248,19 @@ onMounted(() => {
             <div v-if="isLoading" class="text-center py-8">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
                 <p class="text-muted-foreground mt-2">
-                    {{ activeTab === 'requirements' ? 'Loading requirements...' : 
-                       activeTab === 'records' ? 'Loading payment records...' : 
-                       'Loading user profiles...' }}
+                    {{ activeTab === 'requirements' ? 'Loading requirements...' :
+                        activeTab === 'records' ? 'Loading payment records...' :
+                            'Loading user profiles...' }}
                 </p>
             </div>
 
             <!-- Tab Content -->
             <div v-else>
-                <Requirements 
-                    v-if="activeTab === 'requirements'" 
-                    :requirements="requirements"
-                    @refresh-data="handleRefreshData"
-                />
-                <Records 
-                    v-if="activeTab === 'records'" 
-                    :payments="payments"
-                    :requirements="requirements"
-                    :users="users"
-                    @refresh-data="handleRefreshData"
-                />
-                <Profiles 
-                    v-if="activeTab === 'profiles'" 
-                    :users="userProfiles"
-                    @refresh-data="handleRefreshData"
-                />
+                <Requirements v-if="activeTab === 'requirements'" :requirements="requirements"
+                    @refresh-data="handleRefreshData" />
+                <Records v-if="activeTab === 'records'" :payments="payments" :requirements="requirements" :users="users"
+                    @refresh-data="handleRefreshData" />
+                <Profiles v-if="activeTab === 'profiles'" :users="userProfiles" @refresh-data="handleRefreshData" />
             </div>
         </div>
     </AppLayout>

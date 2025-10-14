@@ -76,7 +76,7 @@ const getTabIcon = (iconType: string) => {
         plus: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>`,
         users: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>`
     }
-    return (icons as Record<string,string>)[iconType] ?? icons.chart
+    return (icons as Record<string, string>)[iconType] ?? icons.chart
 }
 </script>
 
@@ -84,18 +84,14 @@ const getTabIcon = (iconType: string) => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-6 text-gray-200">
             <!-- Tabs Navigation -->
-            <div class="flex space-x-1 border-b border-gray-800 mb-6">
-                <button
-                    v-for="tab in tabs"
-                    :key="tab.key"
-                    @click="activeTab = tab.key"
-                    class="flex items-center gap-2 px-4 py-3 rounded-t-lg transition-all duration-200"
-                    :class="[
+            <div class="flex space-x-6 border-b border-gray-800 mb-6">
+                <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+                    class="pb-2 flex items-center gap-2 transition-all duration-200" :class="[
+
                         activeTab === tab.key
-                            ? 'bg-gray-800 border-b-2 border-blue-500 text-blue-400'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-                    ]"
-                >
+                            ? 'border-b-2 border-black text-black'
+                            : 'text-gray-400 hover:text-gray-200'
+                    ]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <g v-html="getTabIcon(tab.icon)"></g>
                     </svg>
@@ -105,28 +101,13 @@ const getTabIcon = (iconType: string) => {
 
             <!-- Tab Content -->
             <div class="min-h-96">
-                <EventOverviewTab 
-                    v-if="activeTab === 'overview'"
-                    :events="events"
-                    :stats="eventStats"
-                    @switch-to-events="switchToEventList"
-                    @switch-to-add="switchToAddEvent"
-                />
-                
-                <EventListTab 
-                    v-else-if="activeTab === 'events'"
-                    :events="events"
-                    :filters="filters"
-                />
-                
-                <AddEventTab 
-                    v-else-if="activeTab === 'add'"
-                    @event-created="switchToEventList"
-                />
-                <ManualRegistrationTab 
-                    v-else-if="activeTab === 'registration'"
-                    :events="events"
-                />
+                <EventOverviewTab v-if="activeTab === 'overview'" :events="events" :stats="eventStats"
+                    @switch-to-events="switchToEventList" @switch-to-add="switchToAddEvent" />
+
+                <EventListTab v-else-if="activeTab === 'events'" :events="events" :filters="filters" />
+
+                <AddEventTab v-else-if="activeTab === 'add'" @event-created="switchToEventList" />
+                <ManualRegistrationTab v-else-if="activeTab === 'registration'" :events="events" />
             </div>
         </div>
     </AppLayout>

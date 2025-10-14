@@ -74,16 +74,16 @@ const getTabIcon = (iconType: string) => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="p-6 text-gray-200">
             <!-- Tabs Navigation -->
-            <div class="flex space-x-1 border-b border-gray-800 mb-6">
+            <div class="flex space-x-6 border-b border-gray-800 mb-6">
                 <button
                     v-for="tab in tabs"
                     :key="tab.key"
                     @click="activeTab = tab.key"
-                    class="flex items-center gap-2 px-4 py-3 rounded-t-lg transition-all duration-200"
+                    class="pb-2 flex items-center gap-2 transition-all duration-200"
                     :class="[
                         activeTab === tab.key
-                            ? 'bg-gray-800 border-b-2 border-blue-500 text-blue-400'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                            ? 'border-b-2 border-black text-black'
+                            : 'text-gray-400 hover:text-gray-200'
                     ]"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

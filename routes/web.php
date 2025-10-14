@@ -4,8 +4,6 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\AttendeeController;
-use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HelpSupportController;
 use App\Http\Controllers\ChatbotController;
@@ -13,7 +11,7 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequirementController;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\UserProfileController; // Add this line
+use App\Http\Controllers\UserProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,7 +73,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     // Main Event Management Page - Use EventController to load data
     Route::get('/event-management', [EventController::class, 'index'])->name('event-management');
-    
+
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
     Route::get('/events/{event}', [EventController::class, 'show'])->name('events.show');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
@@ -96,7 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     // Main payment page with tabs
     Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
-    
+
     // Requirements CRUD routes
     Route::get('/requirements', [RequirementController::class, 'index'])->name('requirements.index');
     Route::post('/requirements', [RequirementController::class, 'store'])->name('requirements.store');
