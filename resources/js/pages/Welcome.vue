@@ -126,7 +126,7 @@ onMounted(() => {
                         :href="route('register')"
                         class="cyber-button bg-gradient-to-r from-purple-500 to-pink-600 px-6 py-3 font-medium text-white transition-all duration-300 hover:shadow-glow-purple hover:scale-105"
                     >
-                        <span class="relative z-10">JACK IN</span>
+                        <span class="relative z-10">JOIN US!</span>
                     </Link>
                 </template>
             </div>
@@ -170,7 +170,7 @@ onMounted(() => {
                                 <svg class="mr-3 h-5 w-5 transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
-                                INITIALIZE SYSTEM
+                                Join us Now
                             </span>
                         </Link>
                         <Link
@@ -192,7 +192,7 @@ onMounted(() => {
                             <svg class="mr-3 h-5 w-5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
                             </svg>
-                            SCAN PROTOCOLS
+                            What we Offer?
                         </a>
                     </div>
                 </div>
@@ -330,7 +330,7 @@ onMounted(() => {
             <div class="container mx-auto px-6 text-center relative z-10">
                 <h2 class="mb-8 text-3xl font-bold md:text-5xl">
                     <span class="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                        READY TO TRANSCEND?
+                        READY TO JOIN THE PSITS-NEXUS?
                     </span>
                 </h2>
                 <p class="mx-auto mb-12 max-w-3xl text-lg text-gray-300 leading-relaxed">
@@ -343,7 +343,7 @@ onMounted(() => {
                     class="cyber-button-mega group relative inline-flex items-center justify-center px-12 py-6 font-bold text-white transition-all duration-500 hover:scale-110"
                 >
                     <span class="relative z-10 flex items-center">
-                        {{ $page.props.auth.user ? 'ENTER THE MATRIX' : 'INITIATE PROTOCOL' }}
+                        {{ $page.props.auth.user ? 'ENTER THE MATRIX' : 'SIGN UP HERE' }}
                         <svg class="ml-4 h-6 w-6 transition-transform group-hover:translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
@@ -367,7 +367,7 @@ onMounted(() => {
                             <span class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent block">
                                 PSITS NEXUS
                             </span>
-                            <span class="text-xs text-gray-500 font-mono">v2.0.77 // NEURAL MATRIX</span>
+                            <span class="text-xs text-gray-500 font-mono">v1.0 </span>
                         </div>
                     </div>
                     
