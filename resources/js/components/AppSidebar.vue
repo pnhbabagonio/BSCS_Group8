@@ -50,11 +50,12 @@ const mainNavItems: NavItem[] = [
         href: '/payment',
         icon: Banknote,
     },
-    {
-        title: 'Reports',
-        href: '/reports',
-        icon: BarChart3,
-    },
+    //Temorarily removed reports section
+    // {
+    //     title: 'Reports',
+    //     href: '/reports',
+    //     icon: BarChart3,
+    // },
     {
         title: 'Help & Support',
         href: '/help-support',
@@ -67,24 +68,6 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-// Financial management sub-items
-const financialManagementItems = [
-    {
-        title: 'Transactions',
-        href: '/transactions',
-        icon: PiggyBank,
-    },
-    {
-        title: 'Financial Reports',
-        href: '/financial-reports',
-        icon: Clipboard,
-    },
-    {
-        title: 'Expenses Tracking',
-        href: '/expenses-tracking',
-        icon: PhilippinePeso,
-    },
-];
 
 
 
