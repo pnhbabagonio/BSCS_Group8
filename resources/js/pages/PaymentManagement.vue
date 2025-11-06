@@ -237,8 +237,8 @@ onMounted(() => {
             <div class="flex space-x-6 border-b border-gray-800 mb-6">
                 <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key" class="pb-2" :class="[
                     activeTab === tab.key
-                        ? 'border-b-2 border-black text-black'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'border-b-2 border-black text-red-600'
+                        : 'text-blue-500 hover:text-red-600'
                 ]">
                     {{ tab.label }}
                 </button>

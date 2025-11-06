@@ -89,8 +89,8 @@ const getTabIcon = (iconType: string) => {
                     class="pb-2 flex items-center gap-2 transition-all duration-200" :class="[
 
                         activeTab === tab.key
-                            ? 'border-b-2 border-black text-black'
-                            : 'text-gray-400 hover:text-gray-200'
+                            ? 'border-b-2 border-black text-red-600'
+                            : 'text-blue-500 hover:text-red-600'
                     ]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <g v-html="getTabIcon(tab.icon)"></g>
