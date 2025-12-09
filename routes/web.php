@@ -169,3 +169,12 @@ Route::get('/registration-pending', fn() => Inertia::render('auth/RegistrationPe
 */
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';
+
+/*
+|--------------------------------------------------------------------------
+| API Testing Page
+|--------------------------------------------------------------------------
+*/
+Route::get('/api-test', function () {
+    return view('api-test');
+});
