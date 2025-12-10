@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import {
     BookOpen,
     ChevronDown,
@@ -18,59 +19,36 @@ import {
     Search,
     Upload,
     Video,
+    QrCode,
+    CreditCard,
+    Users,
+    Calendar,
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: '/dashboard',
-    },
-    {
-        title: 'Help & Support',
-        href: '/help-support',
-    },
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Help & Support', href: '/help-support' },
 ];
 
 // FAQ data
 const faqs = ref([
-    {
-        question: 'How do I generate a QR code for payment collection?',
-        answer: 'To generate a QR code: Navigate to the QR Generator page from the Quick Actions menu, enter the payment amount and description, click "Generate QR Code", then download or share the generated QR code.',
-        open: false
-    },
-    {
-        question: 'How can I manually record a payment?',
-        answer: 'To manually record a payment: Go to the Record Payment page from Quick Actions, select the member, enter the payment details (amount, date, payment method), add any notes or references, then click "Record Payment" to save.',
-        open: false
-    },
-    {
-        question: 'Why is my QR code not scanning properly?',
-        answer: 'Common reasons for scanning issues: The QR code is too small or pixelated when printed, poor lighting conditions when scanning, the camera lens is dirty or damaged, outdated scanning app or system software. Try generating a new QR code with higher resolution settings.',
-        open: false
-    },
-    {
-        question: 'How do I add a new member to the system?',
-        answer: 'To add a new member: Click "Add Member" from the Quick Actions menu, fill in the required information (name, contact details, etc.), set the member\'s status and permissions, upload a profile photo if available, then click "Save" to add the member to the database.',
-        open: false
-    },
-    {
-        question: 'How can I view transaction history for a member?',
-        answer: 'To view transaction history: Go to the Members section from the main navigation, search for the specific member, click on the member\'s name to view their profile, navigate to the "Transactions" tab, then you can filter transactions by date range or type.',
-        open: false
-    }
+    { question: 'How do I generate a QR code for payment collection?', answer: 'To generate a QR code: Navigate to the QR Generator page from the Quick Actions menu, enter the payment amount and description, click "Generate QR Code", then download or share the generated QR code.', open: false },
+    { question: 'How can I manually record a payment?', answer: 'To manually record a payment: Go to the Record Payment page from Quick Actions, select the member, enter the payment details (amount, date, payment method), add any notes or references, then click "Record Payment" to save.', open: false },
+    { question: 'Why is my QR code not scanning properly?', answer: 'Common reasons for scanning issues: The QR code is too small or pixelated when printed, poor lighting conditions when scanning, the camera lens is dirty or damaged, outdated scanning app or system software. Try generating a new QR code with higher resolution settings.', open: false },
+    { question: 'How do I add a new member to the system?', answer: 'To add a new member: Click "Add Member" from the Quick Actions menu, fill in the required information (name, contact details, etc.), set the member\'s status and permissions, upload a profile photo if available, then click "Save" to add the member to the database.', open: false },
+    { question: 'How can I view transaction history for a member?', answer: 'To view transaction history: Go to the Members section from the main navigation, search for the specific member, click on the member\'s name to view their profile, navigate to the "Transactions" tab, then you can filter transactions by date range or type.', open: false }
 ]);
 
-// Toggle FAQ item
-const toggleFaq = (index: number) => {
-    faqs.value[index].open = !faqs.value[index].open;
-};
+const toggleFaq = (index: number) => { faqs.value[index].open = !faqs.value[index].open; };
 
 // Support form data
 const formData = ref({
     name: '',
     email: '',
     subject: '',
+    category: '',
+    priority: 'medium',
     description: '',
     attachments: [] as File[]
 });
@@ -83,26 +61,45 @@ const handleFileUpload = (event: Event) => {
     }
 };
 
-// Submit support request
+// Submit support request to backend
 const submitSupportRequest = () => {
-    // In a real application, this would send the data to your backend
-    console.log('Submitting support request:', formData.value);
-    alert('Support request submitted successfully!');
-    
-    // Reset form
-    formData.value = {
-        name: '',
-        email: '',
-        subject: '',
-        description: '',
-        attachments: []
-    };
+    // basic client-side validation
+    if (!formData.value.subject.trim()) { alert('Please enter a subject'); return; }
+    if (!formData.value.category) { alert('Please select a category'); return; }
+    if (!formData.value.description.trim()) { alert('Please enter a description'); return; }
+
+    const payload = new FormData();
+    payload.append('subject', formData.value.subject);
+    payload.append('message', formData.value.description);
+    payload.append('category', formData.value.category);
+    payload.append('priority', formData.value.priority);
+    // optional fields
+    if (formData.value.name) payload.append('name', formData.value.name);
+    if (formData.value.email) payload.append('email', formData.value.email);
+
+    formData.value.attachments.forEach((file, idx) => {
+        payload.append('attachments[]', file, file.name);
+    });
+
+    router.post('/help-support', payload, {
+        preserveScroll: false,
+        preserveState: false,
+        onStart: () => { /* you can set a loading flag here */ },
+        onSuccess: () => {
+            alert('Support request submitted successfully!');
+            // reset
+            formData.value = { name: '', email: '', subject: '', category: '', priority: 'medium', description: '', attachments: [] };
+        },
+        onError: (errors: any) => {
+            console.error('Validation errors', errors);
+            // Inertia will also populate page.props.errors; you can surface them in UI.
+        }
+    });
 };
 </script>
 
 <template>
     <Head title="Help & Support" />
-
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
             <!-- Header -->
@@ -111,9 +108,7 @@ const submitSupportRequest = () => {
                     <h1 class="text-2xl font-bold text-foreground">PSITS Nexus Help & Support</h1>
                     <p class="text-muted-foreground">Find answers to common questions and get assistance</p>
                 </div>
-                
                 <div class="flex items-center gap-3">
-                    <!-- Search Input -->
                     <div class="relative">
                         <input type="text" placeholder="Search help articles..." class="pl-10 pr-4 py-2 border border-border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
                         <Search class="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
@@ -121,7 +116,6 @@ const submitSupportRequest = () => {
                 </div>
             </div>
 
-            <!-- Main Content -->
             <div class="grid gap-6">
                 <!-- Quick Help Cards -->
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -199,49 +193,35 @@ const submitSupportRequest = () => {
                         <form class="space-y-4" @submit.prevent="submitSupportRequest">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Name</label>
-                                <input 
-                                    type="text" 
-                                    v-model="formData.name"
-                                    class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-                                    required
-                                >
+                                <input type="text" v-model="formData.name" class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium mb-1">Email</label>
-                                <input 
-                                    type="email" 
-                                    v-model="formData.email"
-                                    class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-                                    required
-                                >
+                                <input type="email" v-model="formData.email" class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
                             </div>
-                            
+
                             <div>
                                 <label class="block text-sm font-medium mb-1">Subject</label>
-                                <select 
-                                    v-model="formData.subject"
-                                    class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-                                    required
-                                >
-                                    <option value="">Select a subject</option>
-                                    <option>Payment Issues</option>
-                                    <option>QR Code Problems</option>
-                                    <option>Member Management</option>
-                                    <option>Event Management</option>
-                                    <option>Technical Support</option>
-                                    <option>Other</option>
+                                <input type="text" v-model="formData.subject" class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card" required>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Category</label>
+                                <select v-model="formData.category" class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card" required>
+                                    <option value="">Select a category</option>
+                                    <option value="billing">Payment Issues</option>
+                                    <option value="qr">QR Code Problems</option>
+                                    <option value="account">Member Management</option>
+                                    <option value="events">Event Management</option>
+                                    <option value="technical">Technical Support</option>
+                                    <option value="other">Other</option>
                                 </select>
                             </div>
-                            
+
                             <div>
                                 <label class="block text-sm font-medium mb-1">Description</label>
-                                <textarea 
-                                    rows="4" 
-                                    v-model="formData.description"
-                                    class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-                                    required
-                                ></textarea>
+                                <textarea rows="4" v-model="formData.description" class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card" required></textarea>
                             </div>
                             
                             <div>
@@ -260,9 +240,7 @@ const submitSupportRequest = () => {
                                 </div>
                             </div>
                             
-                            <Button type="submit" class="w-full">
-                                Submit Request
-                            </Button>
+                            <Button type="submit" class="w-full">Submit Request</Button>
                         </form>
                     </div>
 
@@ -317,48 +295,6 @@ const submitSupportRequest = () => {
                                 <p class="text-xs text-muted-foreground">Available Monday-Friday, 8:00 AM - 5:00 PM</p>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- System Status -->
-                <div class="rounded-xl border border-border bg-card p-6">
-                    <div class="mb-4 flex items-center justify-between">
-                        <h2 class="text-xl font-semibold">System Status</h2>
-                        <div class="flex items-center gap-2">
-                            <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                            <span class="text-sm text-green-600">All Systems Operational</span>
-                        </div>
-                    </div>
-                    
-                    <div class="grid gap-4 md:grid-cols-3">
-                        <div class="p-4 border border-border rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-medium">Payment Processing</h3>
-                                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                            </div>
-                            <p class="text-sm text-muted-foreground">No issues detected</p>
-                        </div>
-                        
-                        <div class="p-4 border border-border rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-medium">QR Code Generation</h3>
-                                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                            </div>
-                            <p class="text-sm text-muted-foreground">No issues detected</p>
-                        </div>
-                        
-                        <div class="p-4 border border-border rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-medium">Database Services</h3>
-                                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                            </div>
-                            <p class="text-sm text-muted-foreground">No issues detected</p>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-4 text-sm text-muted-foreground">
-                        <p>Last updated: September 21, 2023 at 10:30 AM</p>
-                        <a href="#" class="text-blue-600 hover:underline">View incident history</a>
                     </div>
                 </div>
             </div>
