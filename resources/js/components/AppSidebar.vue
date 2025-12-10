@@ -32,6 +32,7 @@ import {
     User,
     Users,
     Banknote,
+    Ticket,
 } from 'lucide-vue-next';
 
 const mainNavItems: NavItem[] = [
@@ -60,6 +61,11 @@ const mainNavItems: NavItem[] = [
         title: 'Help & Support',
         href: '/help-support',
         icon: HelpCircle,
+    },
+    {
+        title: 'Support Tickets',
+        href: '/help-support/tickets',
+        icon: Ticket,
     },
     {
         title: 'ChatBot',
@@ -92,7 +98,7 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
                         <Link :href="route('dashboard')">
-                        <AppLogo />
+                            <AppLogo />
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -104,8 +110,8 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem>
                     <SidebarMenuButton as-child>
                         <Link :href="mainNavItems[0].href">
-                        <component :is="mainNavItems[0].icon" />
-                        <span>{{ mainNavItems[0].title }}</span>
+                            <component :is="mainNavItems[0].icon" />
+                            <span>{{ mainNavItems[0].title }}</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -114,8 +120,8 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem>
                     <SidebarMenuButton as-child>
                         <Link :href="route('user-management')">
-                        <User />
-                        <span>User Management</span>
+                            <User />
+                            <span>User Management</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -124,8 +130,8 @@ const footerNavItems: NavItem[] = [
                 <SidebarMenuItem v-for="item in mainNavItems.slice(1)" :key="item.title">
                     <SidebarMenuButton as-child>
                         <Link :href="item.href">
-                        <component :is="item.icon" />
-                        <span>{{ item.title }}</span>
+                            <component :is="item.icon" />
+                            <span>{{ item.title }}</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

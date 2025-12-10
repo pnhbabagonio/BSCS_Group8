@@ -53,7 +53,6 @@ const props = defineProps<{
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Help & Support', href: '/help-support' },
   { title: 'Support Tickets', href: '/help-support/tickets' },
 ];
 
@@ -181,6 +180,7 @@ const exportToCSV = () => {
 </script>
 
 <template>
+
   <Head title="Support Tickets" />
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-6 p-6">
@@ -210,23 +210,16 @@ const exportToCSV = () => {
             <label class="block text-sm font-medium mb-2">Search</label>
             <div class="relative">
               <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                v-model="searchQuery"
-                @keyup.enter="applyFilters"
-                type="text"
-                placeholder="Search tickets..."
-                class="pl-10 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-              />
+              <input v-model="searchQuery" @keyup.enter="applyFilters" type="text" placeholder="Search tickets..."
+                class="pl-10 w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card" />
             </div>
           </div>
 
           <!-- Status Filter -->
           <div>
             <label class="block text-sm font-medium mb-2">Status</label>
-            <select
-              v-model="filterStatus"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-            >
+            <select v-model="filterStatus"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
               <option value="">All Status</option>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
@@ -238,10 +231,8 @@ const exportToCSV = () => {
           <!-- Priority Filter -->
           <div>
             <label class="block text-sm font-medium mb-2">Priority</label>
-            <select
-              v-model="filterPriority"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-            >
+            <select v-model="filterPriority"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
               <option value="">All Priorities</option>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -253,10 +244,8 @@ const exportToCSV = () => {
           <!-- Category Filter -->
           <div>
             <label class="block text-sm font-medium mb-2">Category</label>
-            <select
-              v-model="filterCategory"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
-            >
+            <select v-model="filterCategory"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
               <option value="">All Categories</option>
               <option value="technical">Technical</option>
               <option value="billing">Billing</option>
@@ -295,11 +284,8 @@ const exportToCSV = () => {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="ticket in tickets"
-                :key="ticket.id"
-                class="border-b border-border hover:bg-muted/50 transition-colors"
-              >
+              <tr v-for="ticket in tickets" :key="ticket.id"
+                class="border-b border-border hover:bg-muted/50 transition-colors">
                 <td class="py-3 px-4 text-sm">#{{ ticket.id }}</td>
                 <td class="py-3 px-4">
                   <div class="font-medium">{{ ticket.subject }}</div>
@@ -339,11 +325,7 @@ const exportToCSV = () => {
                 </td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      @click="toggleTicketDetails(ticket.id)"
-                    >
+                    <Button size="sm" variant="ghost" @click="toggleTicketDetails(ticket.id)">
                       <Eye class="h-4 w-4" />
                     </Button>
                   </div>
@@ -363,10 +345,7 @@ const exportToCSV = () => {
 
       <!-- Ticket Details (Expanded) -->
       <div v-for="ticket in tickets" :key="ticket.id">
-        <div
-          v-if="expandedTickets.includes(ticket.id)"
-          class="rounded-lg border border-border bg-card p-6 mt-2"
-        >
+        <div v-if="expandedTickets.includes(ticket.id)" class="rounded-lg border border-border bg-card p-6 mt-2">
           <div class="flex justify-between items-start mb-6">
             <div>
               <h3 class="text-lg font-semibold mb-2">{{ ticket.subject }}</h3>
@@ -425,13 +404,8 @@ const exportToCSV = () => {
             <div v-if="ticket.attachments && ticket.attachments.length > 0">
               <h4 class="font-medium mb-2">Attachments</h4>
               <div class="flex flex-wrap gap-2">
-                <a
-                  v-for="(attachment, index) in ticket.attachments"
-                  :key="index"
-                  :href="attachment.url"
-                  target="_blank"
-                  class="inline-flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
-                >
+                <a v-for="(attachment, index) in ticket.attachments" :key="index" :href="attachment.url" target="_blank"
+                  class="inline-flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                   <FileText class="h-4 w-4" />
                   <span class="text-sm">{{ attachment.name }}</span>
                 </a>
