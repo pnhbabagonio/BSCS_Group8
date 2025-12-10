@@ -12,6 +12,8 @@ import {
     QrCode,
     User,
     UserPlus,
+    Download,
+    Check,
 } from "lucide-vue-next"
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,6 +80,8 @@ const showModal = ref(false)
 const editingRecord = ref<PaymentRecord | null>(null)
 const manualEntry = ref(false)
 const isLoading = ref(false)
+const isSelectionMode = ref(false)
+const selectedRecords = ref<Set<number>>(new Set())
 
 const search = ref("")
 const isFilterOpen = ref(false)
@@ -110,6 +114,14 @@ const selectedRequirement = computed(() => {
     return requirements.value.find(req => req.id === parseInt(form.value.requirement_id))
 })
 
+const isAllSelected = computed(() => {
+    return filteredRecords.value.length > 0 && filteredRecords.value.every(record => selectedRecords.value.has(record.id))
+})
+
+const isAnySelected = computed(() => {
+    return selectedRecords.value.size > 0
+})
+
 // Watch for prop changes and update local data
 watch(() => props.payments, (newPayments) => {
     payments.value = newPayments || []
@@ -127,6 +139,81 @@ watch(() => props.users, (newUsers) => {
 })
 
 // --- Methods ---
+function toggleSelectionMode() {
+    isSelectionMode.value = !isSelectionMode.value
+    if (!isSelectionMode.value) {
+        selectedRecords.value.clear()
+    }
+}
+
+function toggleRecordSelection(recordId: number) {
+    if (selectedRecords.value.has(recordId)) {
+        selectedRecords.value.delete(recordId)
+    } else {
+        selectedRecords.value.add(recordId)
+    }
+}
+
+function toggleSelectAll() {
+    if (isAllSelected.value) {
+        selectedRecords.value.clear()
+    } else {
+        filteredRecords.value.forEach(record => {
+            selectedRecords.value.add(record.id)
+        })
+    }
+}
+
+function downloadSelectedRecords() {
+    if (selectedRecords.value.size === 0) {
+        alert('Please select at least one record to download')
+        return
+    }
+
+    const selectedPayments = payments.value.filter(payment =>
+        selectedRecords.value.has(payment.id)
+    )
+
+    // CSV headers
+    const headers = ['ID', 'Student Name', 'Student ID', 'Requirement', 'Amount Paid', 'Date Paid', 'Payment Method', 'Status', 'Notes']
+
+    // CSV rows
+    const rows = selectedPayments.map(payment => [
+        payment.id,
+        `"${getDisplayName(payment)}"`,
+        payment.user_id && payment.user ? payment.user.student_id || '' : payment.student_id || '',
+        `"${payment.requirement.title}"`,
+        payment.amount_paid,
+        payment.paid_at ? formatDate(payment.paid_at) : '',
+        payment.payment_method || '',
+        payment.status,
+        `"${payment.notes || ''}"`,
+    ])
+
+    // Combine headers and rows
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+    ].join('\n')
+
+    // Create blob and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+
+    link.setAttribute('href', url)
+    link.setAttribute('download', `payment_records_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // Reset selection
+    selectedRecords.value.clear()
+    isSelectionMode.value = false
+}
+
 function loadRecords() {
     // Emit event to parent to refresh data
     console.log("Emitting refresh-data event to parent")
@@ -155,7 +242,7 @@ function openAddModal() {
 function openEditModal(record: PaymentRecord) {
     editingRecord.value = record
     manualEntry.value = !record.user_id
-    
+
     form.value = {
         user_id: record.user_id ? record.user_id.toString() : "",
         requirement_id: record.requirement_id.toString(),
@@ -311,7 +398,7 @@ const filteredRecords = computed(() => {
 
     if (search.value) {
         const searchLower = search.value.toLowerCase()
-        filtered = filtered.filter(record => 
+        filtered = filtered.filter(record =>
             getDisplayName(record).toLowerCase().includes(searchLower) ||
             record.requirement.title.toLowerCase().includes(searchLower)
         )
@@ -350,7 +437,7 @@ function getUserDetails(record: PaymentRecord) {
 onMounted(() => {
     console.log("Records component mounted")
     console.log(`Initial props - Payments: ${props.payments?.length || 0}, Requirements: ${props.requirements?.length || 0}, Users: ${props.users?.length || 0}`)
-    
+
     // Initialize local data with props
     payments.value = props.payments || []
     requirements.value = props.requirements || []
@@ -367,10 +454,10 @@ onMounted(() => {
                 <p class="text-muted-foreground">Manage and track all payment transactions</p>
             </div>
             <div class="flex gap-2">
-                <Button
-                    @click="openAddModal"
-                    class="gap-2"
-                >
+                <Button @click="toggleSelectionMode" :variant="isSelectionMode ? 'default' : 'outline'" class="gap-2">
+                    <Download class="w-4 h-4" /> Download
+                </Button>
+                <Button @click="openAddModal" class="gap-2">
                     <Plus class="w-4 h-4" /> Add Record
                 </Button>
             </div>
@@ -385,56 +472,49 @@ onMounted(() => {
                 <!-- Search -->
                 <div class="flex items-center flex-1 bg-muted border border-border rounded-lg px-3 py-2">
                     <Search class="w-4 h-4 text-muted-foreground" />
-                    <input
-                        v-model="search"
-                        type="text"
-                        placeholder="Search name..."
-                        class="ml-2 flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
-                    />
+                    <input v-model="search" type="text" placeholder="Search name..."
+                        class="ml-2 flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground" />
                 </div>
 
                 <!-- Filter -->
                 <div class="relative">
-                    <Button
-                        @click="isFilterOpen = !isFilterOpen"
-                        variant="outline"
-                        class="gap-2"
-                    >
+                    <Button @click="isFilterOpen = !isFilterOpen" variant="outline" class="gap-2">
                         <Filter class="w-4 h-4" />
                         <span>{{ paymentFilter }}</span>
-                        <ChevronDown
-                            class="w-4 h-4 transition-transform"
-                            :class="{ 'rotate-180': isFilterOpen }"
-                        />
+                        <ChevronDown class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isFilterOpen }" />
                     </Button>
 
                     <!-- Dropdown -->
-                    <div
-                        v-if="isFilterOpen"
-                        class="absolute right-0 mt-2 w-32 bg-card border border-border rounded-lg shadow-lg z-10 overflow-hidden"
-                    >
-                        <button
-                            v-for="option in filterOptions"
-                            :key="option"
-                            @click="
-                                paymentFilter = option;
-                                isFilterOpen = false
-                            "
-                            class="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                            :class="{ 'bg-muted': paymentFilter === option }"
-                        >
+                    <div v-if="isFilterOpen"
+                        class="absolute right-0 mt-2 w-32 bg-card border border-border rounded-lg shadow-lg z-10 overflow-hidden">
+                        <button v-for="option in filterOptions" :key="option" @click="
+                            paymentFilter = option;
+                        isFilterOpen = false
+                            " class="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                            :class="{ 'bg-muted': paymentFilter === option }">
                             {{ option }}
                         </button>
                     </div>
                 </div>
 
                 <!-- Clear Filter -->
-                <Button
-                    v-if="paymentFilter !== 'All' || search"
-                    @click="clearFilters"
-                    variant="outline"
-                >
+                <Button v-if="paymentFilter !== 'All' || search" @click="clearFilters" variant="outline">
                     Clear Filters
+                </Button>
+            </div>
+
+            <!-- Selection Mode Controls -->
+            <div v-if="isSelectionMode"
+                class="flex items-center gap-3 mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <span class="text-sm font-medium">
+                    {{ selectedRecords.size }} record{{ selectedRecords.size !== 1 ? 's' : '' }} selected
+                </span>
+                <div class="flex-1"></div>
+                <Button @click="downloadSelectedRecords" :disabled="!isAnySelected" class="gap-2">
+                    <Download class="w-4 h-4" /> Download Selected
+                </Button>
+                <Button @click="toggleSelectionMode" variant="outline" class="gap-2">
+                    <X class="w-4 h-4" /> Cancel
                 </Button>
             </div>
 
@@ -443,6 +523,10 @@ onMounted(() => {
                 <table class="w-full text-sm text-left">
                     <thead class="bg-muted uppercase text-xs">
                         <tr>
+                            <th v-if="isSelectionMode" class="px-4 py-3 text-muted-foreground w-12">
+                                <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll"
+                                    class="w-4 h-4 cursor-pointer rounded border-border" />
+                            </th>
                             <th class="px-4 py-3 text-muted-foreground">Student</th>
                             <th class="px-4 py-3 text-muted-foreground">Requirement</th>
                             <th class="px-4 py-3 text-muted-foreground">Amount</th>
@@ -453,11 +537,13 @@ onMounted(() => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr
-                            v-for="record in filteredRecords"
-                            :key="record.id"
-                            class="border-t border-border hover:bg-muted/50 transition-colors"
-                        >
+                        <tr v-for="record in filteredRecords" :key="record.id"
+                            :class="['border-t border-border transition-colors', isSelectionMode && selectedRecords.has(record.id) ? 'bg-blue-500/10' : 'hover:bg-muted/50']">
+                            <td v-if="isSelectionMode" class="px-4 py-3 w-12">
+                                <input type="checkbox" :checked="selectedRecords.has(record.id)"
+                                    @change="toggleRecordSelection(record.id)"
+                                    class="w-4 h-4 cursor-pointer rounded border-border" />
+                            </td>
                             <td class="px-4 py-3">
                                 <div class="font-medium">{{ getDisplayName(record) }}</div>
                                 <div class="text-xs text-muted-foreground">{{ getUserDetails(record) }}</div>
@@ -467,45 +553,31 @@ onMounted(() => {
                             <td class="px-4 py-3">{{ formatDate(record.paid_at) }}</td>
                             <td class="px-4 py-3">{{ record.payment_method || "—" }}</td>
                             <td class="px-4 py-3">
-                                <Badge
-                                    :class="{
-                                        'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-300': record.status === 'paid',
-                                        'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-300': record.status === 'unpaid',
-                                        'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300': record.status === 'pending',
-                                    }"
-                                >
+                                <Badge :class="{
+                                    'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-300': record.status === 'paid',
+                                    'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-300': record.status === 'unpaid',
+                                    'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300': record.status === 'pending',
+                                }">
                                     {{ record.status }}
                                 </Badge>
                             </td>
                             <td class="px-4 py-3 flex gap-2">
-                                <Button
-                                    @click="openEditModal(record)"
-                                    variant="ghost"
-                                    size="icon"
-                                >
+                                <Button @click="openEditModal(record)" variant="ghost" size="icon">
                                     <Pencil class="w-4 h-4" />
                                 </Button>
-                                <Button
-                                    @click="deleteRecord(record.id)"
-                                    variant="ghost"
-                                    size="icon"
-                                >
+                                <Button @click="deleteRecord(record.id)" variant="ghost" size="icon">
                                     <Trash2 class="w-4 h-4" />
                                 </Button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-                
+
                 <!-- Empty state -->
                 <div v-if="filteredRecords.length === 0" class="text-center py-8 text-muted-foreground">
                     <Search class="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No payment records found</p>
-                    <Button 
-                        v-if="!search && paymentFilter === 'All'" 
-                        @click="openAddModal" 
-                        class="gap-2 mt-4"
-                    >
+                    <Button v-if="!search && paymentFilter === 'All'" @click="openAddModal" class="gap-2 mt-4">
                         <Plus class="h-4 w-4" />
                         Add First Record
                     </Button>
@@ -513,11 +585,10 @@ onMounted(() => {
             </div>
 
             <!-- Add/Edit Record Modal -->
-            <div
-                v-if="showModal"
-                class="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50"
-            >
-                <div class="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-lg max-h-[90vh] overflow-y-auto">
+            <div v-if="showModal"
+                class="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+                <div
+                    class="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-lg max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold">
                             {{ editingRecord ? "Edit Payment Record" : "Add Payment Record" }}
@@ -526,17 +597,12 @@ onMounted(() => {
                             <X class="w-5 h-5" />
                         </Button>
                     </div>
-                    
+
                     <!-- Entry Type Toggle -->
                     <div class="mb-4 p-3 bg-muted rounded-lg">
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-medium">Entry Type:</span>
-                            <Button
-                                @click="toggleManualEntry"
-                                variant="outline"
-                                size="sm"
-                                class="gap-2"
-                            >
+                            <Button @click="toggleManualEntry" variant="outline" size="sm" class="gap-2">
                                 <component :is="manualEntry ? User : UserPlus" class="w-4 h-4" />
                                 {{ manualEntry ? "Manual Entry" : "Existing User" }}
                             </Button>
@@ -552,13 +618,11 @@ onMounted(() => {
                             <label class="block text-sm text-muted-foreground mb-1">
                                 Select Student <span class="text-destructive">*</span>
                             </label>
-                            <select
-                                v-model="form.user_id"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                            >
+                            <select v-model="form.user_id"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm">
                                 <option disabled value="">Select student</option>
                                 <option v-for="user in users" :key="user.id" :value="user.id">
-                                    {{ getUserDisplayName(user) }} 
+                                    {{ getUserDisplayName(user) }}
                                     {{ user.student_id ? `(${user.student_id})` : '' }}
                                 </option>
                             </select>
@@ -574,21 +638,15 @@ onMounted(() => {
                                     <label class="block text-sm text-muted-foreground mb-1">
                                         First Name <span class="text-destructive">*</span>
                                     </label>
-                                    <input
-                                        v-model="form.first_name"
-                                        type="text"
+                                    <input v-model="form.first_name" type="text"
                                         class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                        placeholder="First name"
-                                    />
+                                        placeholder="First name" />
                                 </div>
                                 <div>
                                     <label class="block text-sm text-muted-foreground mb-1">Middle Name</label>
-                                    <input
-                                        v-model="form.middle_name"
-                                        type="text"
+                                    <input v-model="form.middle_name" type="text"
                                         class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                        placeholder="Middle name"
-                                    />
+                                        placeholder="Middle name" />
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
@@ -596,21 +654,15 @@ onMounted(() => {
                                     <label class="block text-sm text-muted-foreground mb-1">
                                         Last Name <span class="text-destructive">*</span>
                                     </label>
-                                    <input
-                                        v-model="form.last_name"
-                                        type="text"
+                                    <input v-model="form.last_name" type="text"
                                         class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                        placeholder="Last name"
-                                    />
+                                        placeholder="Last name" />
                                 </div>
                                 <div>
                                     <label class="block text-sm text-muted-foreground mb-1">Student ID</label>
-                                    <input
-                                        v-model="form.student_id"
-                                        type="text"
+                                    <input v-model="form.student_id" type="text"
                                         class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                        placeholder="Optional"
-                                    />
+                                        placeholder="Optional" />
                                 </div>
                             </div>
                         </div>
@@ -620,11 +672,8 @@ onMounted(() => {
                             <label class="block text-sm text-muted-foreground mb-1">
                                 Requirement <span class="text-destructive">*</span>
                             </label>
-                            <select
-                                v-model="form.requirement_id"
-                                @change="onRequirementChange"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                            >
+                            <select v-model="form.requirement_id" @change="onRequirementChange"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm">
                                 <option disabled value="">Select requirement</option>
                                 <option v-for="req in requirements" :key="req.id" :value="req.id">
                                     {{ req.title }} (₱{{ req.amount }})
@@ -640,14 +689,9 @@ onMounted(() => {
                             <label class="block text-sm text-muted-foreground mb-1">
                                 Amount <span class="text-destructive">*</span>
                             </label>
-                            <input
-                                v-model.number="form.amount_paid"
-                                type="number"
-                                step="0.01"
+                            <input v-model.number="form.amount_paid" type="number" step="0.01"
                                 class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                :class="{ 'bg-muted/50': selectedRequirement }"
-                                :readonly="!!selectedRequirement"
-                            />
+                                :class="{ 'bg-muted/50': selectedRequirement }" :readonly="!!selectedRequirement" />
                             <p v-if="selectedRequirement" class="text-xs text-muted-foreground mt-1">
                                 Amount auto-filled from selected requirement
                             </p>
@@ -658,10 +702,8 @@ onMounted(() => {
                             <label class="block text-sm text-muted-foreground mb-1">
                                 Status <span class="text-destructive">*</span>
                             </label>
-                            <select
-                                v-model="form.status"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                            >
+                            <select v-model="form.status"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm">
                                 <option value="pending">Pending</option>
                                 <option value="paid">Paid</option>
                                 <option value="unpaid">Unpaid</option>
@@ -671,10 +713,8 @@ onMounted(() => {
                         <!-- Payment Method (show only if paid) -->
                         <div v-if="form.status === 'paid'">
                             <label class="block text-sm text-muted-foreground mb-1">Payment Method</label>
-                            <select
-                                v-model="form.payment_method"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                            >
+                            <select v-model="form.payment_method"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm">
                                 <option value="Cash">Cash</option>
                                 <option value="GCash">GCash</option>
                                 <option value="PayMaya">PayMaya</option>
@@ -685,30 +725,20 @@ onMounted(() => {
                         <!-- Date Paid (show only if paid) -->
                         <div v-if="form.status === 'paid'">
                             <label class="block text-sm text-muted-foreground mb-1">Date Paid</label>
-                            <input
-                                v-model="form.paid_at"
-                                type="date"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                            />
+                            <input v-model="form.paid_at" type="date"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm" />
                         </div>
 
                         <!-- Notes -->
                         <div>
                             <label class="block text-sm text-muted-foreground mb-1">Notes</label>
-                            <textarea
-                                v-model="form.notes"
-                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                                rows="2"
-                                placeholder="Additional notes..."
-                            ></textarea>
+                            <textarea v-model="form.notes"
+                                class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm" rows="2"
+                                placeholder="Additional notes..."></textarea>
                         </div>
 
                         <div class="flex justify-end gap-2 mt-6">
-                            <Button
-                                type="button"
-                                @click="showModal = false"
-                                variant="outline"
-                            >
+                            <Button type="button" @click="showModal = false" variant="outline">
                                 Cancel
                             </Button>
                             <Button type="submit">
