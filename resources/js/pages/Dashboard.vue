@@ -8,8 +8,6 @@ import { Head } from '@inertiajs/vue3';
 import {
     Activity,
     BarChart3,
-    Bell,
-    Calendar,
     CreditCard,
     DollarSign,
     Eye,
@@ -21,6 +19,7 @@ import {
     UserCheck,
     Users,
 } from 'lucide-vue-next';
+import { ref } from 'vue';
 
 // Define props interface based on real data
 interface Props {
@@ -102,6 +101,36 @@ const breadcrumbs: BreadcrumbItem[] = [
 const currentDate = new Date();
 const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
 const currentYear = currentDate.getFullYear();
+
+// Function to create a new announcement
+const createAnnouncement = async (title: string, content: string, priority: 'high' | 'medium' | 'low') => {
+    try {
+        const response = await fetch('/announcements', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            body: JSON.stringify({
+                title,
+                content,
+                priority,
+                date: new Date().toISOString().split('T')[0],
+            }),
+        });
+
+        if (response.ok) {
+            const newAnnouncement = await response.json();
+            console.log('Announcement created:', newAnnouncement);
+            // Optionally refresh the page or update the announcements list
+            window.location.reload();
+        } else {
+            console.error('Failed to create announcement');
+        }
+    } catch (error) {
+        console.error('Error creating announcement:', error);
+    }
+};
 
 // Generate calendar days for current month
 const getDaysInMonth = (date: Date) => {
