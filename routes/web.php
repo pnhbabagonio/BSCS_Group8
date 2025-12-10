@@ -134,6 +134,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/help-support', [HelpSupportController::class, 'index'])->name('help-support');
     Route::post('/help-support', [HelpSupportController::class, 'store'])->name('help-support.store');
+    // Add this line for the tickets page
+    Route::get('/help-support/tickets', [HelpSupportController::class, 'tickets'])->name('help-support.tickets');
 });
 
 /*
