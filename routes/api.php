@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\SupportTicketController;
 
 // Public API routes
 Route::get('/hello', function () {
@@ -36,6 +37,14 @@ Route::middleware(['auth:sanctum', 'member.access'])->group(function () {
     
     // Public events (members can view)
     Route::get('/events', [EventController::class, 'index']);
+
+    // Support Tickets
+    Route::prefix('support-tickets')->group(function () {
+        Route::post('/', [SupportTicketController::class, 'store']);
+        Route::get('/', [SupportTicketController::class, 'index']);
+        Route::get('/{ticket}', [SupportTicketController::class, 'show']);
+    });
+    
 });
 
 // Admin/Officer only routes (for future use)

@@ -354,6 +354,54 @@
                 </ul>
             </div>
         </div>
+
+        <!-- Add to your button group in the authSection -->
+        <button class="btn" onclick="createSupportTicket()">Create Support Ticket</button>
+
+        <!-- Add a new section for ticket creation -->
+        <div class="api-section" id="ticketSection" style="display: none;">
+            <h2 class="section-title">🎫 Create Support Ticket</h2>
+            <form id="ticketForm">
+                <div class="form-group">
+                    <label for="ticketSubject">Subject *</label>
+                    <input type="text" id="ticketSubject" placeholder="Brief description of your issue" required>
+                </div>
+                <div class="form-group">
+                    <label for="ticketMessage">Message *</label>
+                    <textarea id="ticketMessage" rows="4" placeholder="Describe your issue in detail..." required></textarea>
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label for="ticketCategory">Category *</label>
+                        <select id="ticketCategory" required>
+                            <option value="">Select Category</option>
+                            <option value="technical">Technical Issue</option>
+                            <option value="billing">Billing/Payment</option>
+                            <option value="account">Account Issue</option>
+                            <option value="general">General Inquiry</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ticketPriority">Priority *</label>
+                        <select id="ticketPriority" required>
+                            <option value="">Select Priority</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="ticketAttachments">Attachments (optional)</label>
+                    <input type="text" id="ticketAttachments" placeholder="Comma-separated file paths/URLs">
+                    <small>Note: In production, you would implement file upload separately</small>
+                </div>
+                <button type="submit" class="btn">Submit Ticket</button>
+                <button type="button" class="btn btn-logout" onclick="toggleTicketForm()">Cancel</button>
+            </form>
+        </div>
         
         <!-- Public API Test -->
         <div class="api-section">
@@ -622,6 +670,78 @@
             document.getElementById('password').value = 'password123';
             document.getElementById('device_name').value = 'PSITS Web Browser';
         });
+
+    
+    // Create Support Ticket
+    // Show/hide ticket form
+    function toggleTicketForm() {
+        const ticketSection = document.getElementById('ticketSection');
+        ticketSection.style.display = ticketSection.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Create support ticket
+    async function createSupportTicket() {
+        // Show the form
+        toggleTicketForm();
+        
+        // Pre-fill form with test data
+        document.getElementById('ticketSubject').value = 'Unable to access member dashboard';
+        document.getElementById('ticketMessage').value = 'I\'m experiencing issues accessing my member dashboard. When I try to log in, I get redirected to the homepage. This started happening yesterday.';
+        document.getElementById('ticketCategory').value = 'technical';
+        document.getElementById('ticketPriority').value = 'medium';
+        document.getElementById('ticketAttachments').value = '';
+    }
+
+    // Handle ticket form submission
+    document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const ticketData = {
+            subject: document.getElementById('ticketSubject').value,
+            message: document.getElementById('ticketMessage').value,
+            category: document.getElementById('ticketCategory').value,
+            priority: document.getElementById('ticketPriority').value,
+            attachments: document.getElementById('ticketAttachments').value 
+                ? document.getElementById('ticketAttachments').value.split(',').map(item => item.trim())
+                : []
+        };
+        
+        try {
+            const response = await axios.post('/api/support-tickets', ticketData);
+            document.getElementById('result').innerHTML = 
+                `<div class="status status-success">✅ Ticket Created Successfully</div>` +
+                `<p><strong>Reference:</strong> ${response.data.data.reference_number}</p>` +
+                `<p>${response.data.instructions}</p>` +
+                `${JSON.stringify(response.data, null, 2)}`;
+            
+            // Hide form and reset
+            toggleTicketForm();
+            document.getElementById('ticketForm').reset();
+            
+        } catch (error) {
+            // Error handled by interceptor
+        }
+    });
+
+    // Add CSS for textarea
+    const style = document.createElement('style');
+    style.textContent = `
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    `;
+    document.head.appendChild(style);
     </script>
 </body>
 </html>
