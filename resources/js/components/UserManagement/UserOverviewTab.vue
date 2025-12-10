@@ -4,15 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
-  Users,
-  UserCheck,
-  UserX,
-  Shield,
-  UserCog,
-  User,
-  Plus,
-  Download,
-  Calendar
+    Users,
+    UserCheck,
+    UserX,
+    Shield,
+    UserCog,
+    User,
+    Plus,
+    Download,
+    Calendar
 } from "lucide-vue-next"
 
 interface User {
@@ -50,6 +50,49 @@ const emit = defineEmits<{
 const recentUsers = computed(() => {
     return props.users.slice(0, 5)
 })
+
+// Export user data as CSV
+const exportUserData = () => {
+    if (!props.users || props.users.length === 0) {
+        alert('No users to export')
+        return
+    }
+
+    // CSV header
+    const headers = ['ID', 'Name', 'Email', 'Student ID', 'Program', 'Year', 'Role', 'Status', 'Last Login']
+
+    // CSV rows
+    const rows = props.users.map(user => [
+        user.id,
+        `"${user.name}"`, // Quote to handle commas in names
+        user.email,
+        user.student_id || '',
+        user.program || '',
+        user.year || '',
+        user.role,
+        user.status,
+        user.last_login
+    ])
+
+    // Combine headers and rows
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+    ].join('\n')
+
+    // Create blob and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+
+    link.setAttribute('href', url)
+    link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+}
 
 // Role distribution for chart
 const roleDistribution = computed(() => {
@@ -93,7 +136,7 @@ const getStatusVariant = (status: string) => {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <!-- Active Users -->
             <Card>
                 <CardContent class="p-4">
@@ -108,7 +151,7 @@ const getStatusVariant = (status: string) => {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <!-- Inactive Users -->
             <Card>
                 <CardContent class="p-4">
@@ -123,7 +166,7 @@ const getStatusVariant = (status: string) => {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <!-- Admins -->
             <Card>
                 <CardContent class="p-4">
@@ -138,7 +181,7 @@ const getStatusVariant = (status: string) => {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <!-- Officers -->
             <Card>
                 <CardContent class="p-4">
@@ -153,7 +196,7 @@ const getStatusVariant = (status: string) => {
                     </div>
                 </CardContent>
             </Card>
-            
+
             <!-- Members -->
             <Card>
                 <CardContent class="p-4">
@@ -179,7 +222,8 @@ const getStatusVariant = (status: string) => {
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div class="space-y-3">
-                        <div v-for="role in roleDistribution" :key="role.name" class="flex items-center justify-between">
+                        <div v-for="role in roleDistribution" :key="role.name"
+                            class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="w-3 h-3 rounded-full" :class="role.color"></div>
                                 <span class="text-sm text-foreground">{{ role.name }}</span>
@@ -192,12 +236,8 @@ const getStatusVariant = (status: string) => {
                     </div>
                     <div class="h-2 bg-muted rounded-full overflow-hidden">
                         <div class="h-full flex">
-                            <div 
-                                v-for="role in roleDistribution" 
-                                :key="role.name"
-                                :class="role.color"
-                                :style="{ width: role.percentage + '%' }"
-                            ></div>
+                            <div v-for="role in roleDistribution" :key="role.name" :class="role.color"
+                                :style="{ width: role.percentage + '%' }"></div>
                         </div>
                     </div>
                 </CardContent>
@@ -209,25 +249,16 @@ const getStatusVariant = (status: string) => {
                     <CardTitle class="text-lg">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3">
-                    <Button 
-                        @click="emit('switchToAdd')"
-                        class="w-full justify-start gap-3 h-auto py-3"
-                    >
+                    <Button @click="emit('switchToAdd')" class="w-full justify-start gap-3 h-auto py-3">
                         <Plus class="h-4 w-4" />
                         Add New User
                     </Button>
-                    <Button 
-                        @click="emit('switchToUsers')"
-                        variant="outline"
-                        class="w-full justify-start gap-3 h-auto py-3"
-                    >
+                    <Button @click="emit('switchToUsers')" variant="outline"
+                        class="w-full justify-start gap-3 h-auto py-3">
                         <Users class="h-4 w-4" />
                         View All Users
                     </Button>
-                    <Button 
-                        variant="outline"
-                        class="w-full justify-start gap-3 h-auto py-3"
-                    >
+                    <Button @click="exportUserData" variant="outline" class="w-full justify-start gap-3 h-auto py-3">
                         <Download class="h-4 w-4" />
                         Export User Data
                     </Button>
@@ -242,12 +273,7 @@ const getStatusVariant = (status: string) => {
                     <CardTitle class="text-lg">Recent Users</CardTitle>
                     <CardDescription>Recently added or active users</CardDescription>
                 </div>
-                <Button 
-                    @click="emit('switchToUsers')"
-                    variant="ghost"
-                    size="sm"
-                    class="gap-2"
-                >
+                <Button @click="emit('switchToUsers')" variant="ghost" size="sm" class="gap-2">
                     View All
                 </Button>
             </CardHeader>

@@ -113,6 +113,13 @@ const submitSupportRequest = () => {
                         <input type="text" placeholder="Search help articles..." class="pl-10 pr-4 py-2 border border-border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card">
                         <Search class="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
                     </div>
+                                  <!-- Add this button -->
+                <Button as-child variant="outline">
+                    <a href="/help-support/tickets">
+                    <Eye class="mr-2 h-4 w-4" />
+                    View Tickets
+                    </a>
+                </Button>
                 </div>
             </div>
 
