@@ -81,7 +81,7 @@ class HelpSupportController extends Controller
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('subject', 'like', '%' . $request->search . '%')
-                  ->orWhere('message', 'like', '%' . $request->search . '%');
+                    ->orWhere('message', 'like', '%' . $request->search . '%');
             });
         }
 
