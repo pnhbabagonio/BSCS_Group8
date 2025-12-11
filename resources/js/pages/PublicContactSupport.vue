@@ -221,7 +221,7 @@ const submitSupportRequest = async () => {
                                 <h3 class="font-semibold text-white mb-2">Email</h3>
                                 <a href="mailto:support@psitsnexus.ph"
                                     class="text-blue-400 hover:text-blue-300 text-sm break-all">
-                                    support@psitsnexus.ph
+                                    psitsnexus@gmail.com
                                 </a>
                             </div>
                         </div>
