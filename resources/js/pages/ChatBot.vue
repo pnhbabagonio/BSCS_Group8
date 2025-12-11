@@ -43,7 +43,7 @@
                     <div class="flex-1">
                       <div class="rounded-lg bg-muted p-3">
                         <p class="text-sm">
-                          Hello! I'm your PSITS chatbot assistant. I can help you with information about:
+                          Hello! I'm Nexi, your PSITS chatbot assistant. I can help you with information about:
                         </p>
                         <ul class="mt-2 list-inside list-disc text-sm text-muted-foreground">
                           <li>PSITS officers and their roles</li>
@@ -241,11 +241,11 @@
                 </div>
                 <div class="flex items-center gap-2">
                   <MapPin class="h-4 w-4 text-muted-foreground" />
-                  <span class="text-sm">IT Building Room 305</span>
+                  <span class="text-sm">ICT Building Faculty Office</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <Mail class="h-4 w-4 text-muted-foreground" />
-                  <span class="text-sm">psits@university.edu</span>
+                  <span class="text-sm">psitsnexus@gmail.com</span>
                 </div>
               </div>
             </div>
@@ -332,13 +332,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Chat data
 const userMessage = ref('');
 const loading = ref(false);
-const webhookUrl = 'https://mariaclara1886.app.n8n.cloud/webhook-test/psits-chatbot';
+const webhookUrl = 'https://mariaclara1886.app.n8n.cloud/webhook/psits-chatbot';
 const responseStatus = ref<number | null>(null);
 const responseTime = ref<number | null>(null);
 const lastResponseData = ref<any>(null);
 const lastResponseTime = ref<string>('');
 const showTechnicalDetails = ref(false);
-const academicYear = '2024-2025';
+const academicYear = '2025-2026';
 
 // Chat history
 const chatHistory = ref<Array<{
