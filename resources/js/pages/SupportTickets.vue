@@ -259,18 +259,12 @@ const deleteSelectedTickets = () => {
             <Download class="mr-2 h-4 w-4" />
             Export CSV
           </Button>
-          <Button 
-            :variant="selectionMode ? 'default' : 'outline'" 
-            @click="toggleSelectionMode"
-          >
+          <Button :variant="selectionMode ? 'default' : 'outline'" @click="toggleSelectionMode">
             <FileText class="mr-2 h-4 w-4" />
             {{ selectionMode ? 'Cancel' : 'Select' }}
           </Button>
-          <Button 
-            v-if="selectionMode && selectedTickets.length > 0"
-            variant="destructive"
-            @click="deleteSelectedTickets"
-          >
+          <Button v-if="selectionMode && selectedTickets.length > 0" variant="destructive"
+            @click="deleteSelectedTickets">
             <Trash2 class="mr-2 h-4 w-4" />
             Delete ({{ selectedTickets.length }})
           </Button>
@@ -353,12 +347,9 @@ const deleteSelectedTickets = () => {
             <thead>
               <tr class="border-b border-border bg-muted/50">
                 <th v-if="selectionMode" class="text-left py-3 px-4 font-medium text-sm w-12">
-                  <input 
-                    type="checkbox" 
+                  <input type="checkbox"
                     :checked="selectedTickets.length === props.tickets.length && props.tickets.length > 0"
-                    @change="toggleSelectAll"
-                    class="w-4 h-4 cursor-pointer"
-                  />
+                    @change="toggleSelectAll" class="w-4 h-4 cursor-pointer" />
                 </th>
                 <th class="text-left py-3 px-4 font-medium text-sm">ID</th>
                 <th class="text-left py-3 px-4 font-medium text-sm">Subject</th>
@@ -374,12 +365,8 @@ const deleteSelectedTickets = () => {
               <tr v-for="ticket in tickets" :key="ticket.id"
                 class="border-b border-border hover:bg-muted/50 transition-colors">
                 <td v-if="selectionMode" class="py-3 px-4">
-                  <input 
-                    type="checkbox"
-                    :checked="selectedTickets.includes(ticket.id)"
-                    @change="toggleTicketSelection(ticket.id)"
-                    class="w-4 h-4 cursor-pointer"
-                  />
+                  <input type="checkbox" :checked="selectedTickets.includes(ticket.id)"
+                    @change="toggleTicketSelection(ticket.id)" class="w-4 h-4 cursor-pointer" />
                 </td>
                 <td class="py-3 px-4 text-sm">#{{ ticket.id }}</td>
                 <td class="py-3 px-4">
@@ -423,12 +410,8 @@ const deleteSelectedTickets = () => {
                     <Button size="sm" variant="ghost" @click="toggleTicketDetails(ticket.id)">
                       <Eye class="h-4 w-4" />
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      class="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      @click="deleteTicket(ticket.id)"
-                    >
+                    <Button size="sm" variant="ghost" class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      @click="deleteTicket(ticket.id)">
                       <Trash2 class="h-4 w-4" />
                     </Button>
                   </div>
