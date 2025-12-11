@@ -20,6 +20,7 @@ import {
   Clock,
   XCircle,
   FileText,
+  Trash2,
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -59,6 +60,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Local state
 const expandedTickets = ref<number[]>([]);
 const showFilters = ref(false);
+const selectionMode = ref(false);
+const selectedTickets = ref<number[]>([]);
 
 // Filters
 const filterStatus = ref(props.filters.status || '');
@@ -177,6 +180,67 @@ const exportToCSV = () => {
   link.click();
   document.body.removeChild(link);
 };
+
+// Toggle selection mode
+const toggleSelectionMode = () => {
+  selectionMode.value = !selectionMode.value;
+  if (!selectionMode.value) {
+    selectedTickets.value = [];
+  }
+};
+
+// Toggle ticket selection
+const toggleTicketSelection = (ticketId: number) => {
+  const index = selectedTickets.value.indexOf(ticketId);
+  if (index > -1) {
+    selectedTickets.value.splice(index, 1);
+  } else {
+    selectedTickets.value.push(ticketId);
+  }
+};
+
+// Toggle select all
+const toggleSelectAll = () => {
+  if (selectedTickets.value.length === props.tickets.length) {
+    selectedTickets.value = [];
+  } else {
+    selectedTickets.value = props.tickets.map(t => t.id);
+  }
+};
+
+// Delete single ticket
+const deleteTicket = (ticketId: number) => {
+  if (confirm('Are you sure you want to delete this support ticket? This action cannot be undone.')) {
+    router.delete(route('help-support.tickets.destroy', ticketId), {
+      onSuccess: () => {
+        // Ticket will be removed on page reload
+      },
+    });
+  }
+};
+
+// Delete selected tickets
+const deleteSelectedTickets = () => {
+  if (selectedTickets.value.length === 0) {
+    alert('Please select at least one ticket to delete');
+    return;
+  }
+
+  const message = selectedTickets.value.length === 1
+    ? 'Are you sure you want to delete this ticket? This action cannot be undone.'
+    : `Are you sure you want to delete ${selectedTickets.value.length} tickets? This action cannot be undone.`;
+
+  if (confirm(message)) {
+    router.post(route('help-support.tickets.batch-destroy'), {
+      ticket_ids: selectedTickets.value,
+    }, {
+      onSuccess: () => {
+        selectedTickets.value = [];
+        selectionMode.value = false;
+      },
+    });
+  }
+};
 </script>
 
 <template>
@@ -194,6 +258,21 @@ const exportToCSV = () => {
           <Button variant="outline" @click="exportToCSV">
             <Download class="mr-2 h-4 w-4" />
             Export CSV
+          </Button>
+          <Button 
+            :variant="selectionMode ? 'default' : 'outline'" 
+            @click="toggleSelectionMode"
+          >
+            <FileText class="mr-2 h-4 w-4" />
+            {{ selectionMode ? 'Cancel' : 'Select' }}
+          </Button>
+          <Button 
+            v-if="selectionMode && selectedTickets.length > 0"
+            variant="destructive"
+            @click="deleteSelectedTickets"
+          >
+            <Trash2 class="mr-2 h-4 w-4" />
+            Delete ({{ selectedTickets.length }})
           </Button>
           <Button variant="outline" @click="showFilters = !showFilters">
             <Filter class="mr-2 h-4 w-4" />
@@ -273,6 +352,14 @@ const exportToCSV = () => {
           <table class="w-full">
             <thead>
               <tr class="border-b border-border bg-muted/50">
+                <th v-if="selectionMode" class="text-left py-3 px-4 font-medium text-sm w-12">
+                  <input 
+                    type="checkbox" 
+                    :checked="selectedTickets.length === props.tickets.length && props.tickets.length > 0"
+                    @change="toggleSelectAll"
+                    class="w-4 h-4 cursor-pointer"
+                  />
+                </th>
                 <th class="text-left py-3 px-4 font-medium text-sm">ID</th>
                 <th class="text-left py-3 px-4 font-medium text-sm">Subject</th>
                 <th class="text-left py-3 px-4 font-medium text-sm">User</th>
@@ -286,6 +373,14 @@ const exportToCSV = () => {
             <tbody>
               <tr v-for="ticket in tickets" :key="ticket.id"
                 class="border-b border-border hover:bg-muted/50 transition-colors">
+                <td v-if="selectionMode" class="py-3 px-4">
+                  <input 
+                    type="checkbox"
+                    :checked="selectedTickets.includes(ticket.id)"
+                    @change="toggleTicketSelection(ticket.id)"
+                    class="w-4 h-4 cursor-pointer"
+                  />
+                </td>
                 <td class="py-3 px-4 text-sm">#{{ ticket.id }}</td>
                 <td class="py-3 px-4">
                   <div class="font-medium">{{ ticket.subject }}</div>
@@ -327,6 +422,14 @@ const exportToCSV = () => {
                   <div class="flex items-center gap-2">
                     <Button size="sm" variant="ghost" @click="toggleTicketDetails(ticket.id)">
                       <Eye class="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      @click="deleteTicket(ticket.id)"
+                    >
+                      <Trash2 class="h-4 w-4" />
                     </Button>
                   </div>
                 </td>

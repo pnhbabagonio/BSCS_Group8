@@ -144,6 +144,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/help-support', [HelpSupportController::class, 'store'])->name('help-support.store');
     // Add this line for the tickets page
     Route::get('/help-support/tickets', [HelpSupportController::class, 'tickets'])->name('help-support.tickets');
+    // Delete ticket routes
+    Route::delete('/help-support/tickets/{ticket}', [HelpSupportController::class, 'destroyTicket'])->name('help-support.tickets.destroy');
+    Route::post('/help-support/tickets/batch-delete', [HelpSupportController::class, 'batchDestroyTickets'])->name('help-support.tickets.batch-destroy');
 });
 
 /*

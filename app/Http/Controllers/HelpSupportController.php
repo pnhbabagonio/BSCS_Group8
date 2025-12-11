@@ -188,4 +188,51 @@ class HelpSupportController extends Controller
             'filters' => $request->only(['search', 'status', 'priority', 'category']),
         ]);
     }
+
+    // Delete a single ticket
+    public function destroyTicket(SupportTicket $ticket)
+    {
+        // Delete associated files
+        if (!empty($ticket->attachments) && is_array($ticket->attachments)) {
+            foreach ($ticket->attachments as $attachment) {
+                if (is_array($attachment) && isset($attachment['path'])) {
+                    Storage::disk('public')->delete($attachment['path']);
+                } elseif (is_string($attachment)) {
+                    Storage::disk('public')->delete($attachment);
+                }
+            }
+        }
+
+        $ticket->delete();
+
+        return redirect()->back()->with('status', 'Support ticket deleted successfully!');
+    }
+
+    // Delete multiple tickets (batch delete)
+    public function batchDestroyTickets(Request $request)
+    {
+        $validated = $request->validate([
+            'ticket_ids' => ['required', 'array', 'min:1'],
+            'ticket_ids.*' => ['integer', 'exists:support_tickets,id'],
+        ]);
+
+        $tickets = SupportTicket::whereIn('id', $validated['ticket_ids'])->get();
+
+        foreach ($tickets as $ticket) {
+            // Delete associated files
+            if (!empty($ticket->attachments) && is_array($ticket->attachments)) {
+                foreach ($ticket->attachments as $attachment) {
+                    if (is_array($attachment) && isset($attachment['path'])) {
+                        Storage::disk('public')->delete($attachment['path']);
+                    } elseif (is_string($attachment)) {
+                        Storage::disk('public')->delete($attachment);
+                    }
+                }
+            }
+
+            $ticket->delete();
+        }
+
+        return redirect()->back()->with('status', 'Selected support tickets deleted successfully!');
+    }
 }
