@@ -18,6 +18,7 @@ import {
     TrendingUp,
     UserCheck,
     Users,
+    Ticket, // Add Ticket icon import
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
@@ -26,7 +27,7 @@ interface Props {
     financialSummary: {
         totalBalance: number;
         membershipFees: number;
-        monthlyExpenses: number;
+        supportTickets: number; // Changed from monthlyExpenses to supportTickets
         totalMembers: number;
     };
     recentTransactions: Array<{
@@ -69,7 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
     financialSummary: () => ({
         totalBalance: 0,
         membershipFees: 0,
-        monthlyExpenses: 0,
+        supportTickets: 0, // Changed from monthlyExpenses to supportTickets
         totalMembers: 0,
     }),
     recentTransactions: () => [],
@@ -232,10 +233,10 @@ const quickActions = [
                     <div class="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 p-6 text-white">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm text-orange-100">Monthly Expenses</p>
-                                <p class="text-2xl font-bold">₱{{ financialSummary.monthlyExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
+                                <p class="text-sm text-orange-100">Support Tickets</p>
+                                <p class="text-2xl font-bold">{{ financialSummary.supportTickets.toLocaleString() }}</p>
                             </div>
-                            <CreditCard class="h-8 w-8 text-orange-200" />
+                            <Ticket class="h-8 w-8 text-orange-200" />
                         </div>
                     </div>
 

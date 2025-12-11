@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Event;
 use App\Models\Attendee;
 use App\Models\Requirement;
+use App\Models\SupportTicket; // Add this import
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -23,12 +24,12 @@ class DashboardController extends Controller
         // Real financial data from payments
         $totalBalance = Payment::where('status', 'paid')->sum('amount_paid');
         $membershipFees = $this->getMembershipFees();
-        $monthlyExpenses = $this->getMonthlyExpenses();
+        $supportTickets = SupportTicket::count(); // Change from monthlyExpenses to supportTickets
         
         $financialSummary = [
             'totalBalance' => $totalBalance,
             'membershipFees' => $membershipFees,
-            'monthlyExpenses' => $monthlyExpenses,
+            'supportTickets' => $supportTickets, // Change key name
             'totalMembers' => $totalMembers,
         ];
 
@@ -96,7 +97,7 @@ class DashboardController extends Controller
     private function getMembershipFees()
     {
         return Requirement::where('title', 'like', '%membership%')
-            ->orWhere('title', 'like', '%due%')
+            ->orWhere('title', 'like', '%Membership%')
             ->get()
             ->sum(function ($requirement) {
                 return $requirement->payments()->where('status', 'paid')->sum('amount_paid');
@@ -104,17 +105,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Calculate monthly expenses (for now, using payments from this month)
+     * Remove the getMonthlyExpenses method since we're replacing it with support tickets count
      */
-    private function getMonthlyExpenses()
-    {
-        // This is a placeholder - you might want to create an Expense model later
-        // For now, we'll return a portion of total payments as "expenses"
-        return Payment::where('status', 'paid')
-            ->whereMonth('paid_at', now()->month)
-            ->sum('amount_paid') * 0.3; // Assuming 30% of payments are expenses
-    }
-
+    
     /**
      * Calculate QR analytics from payment data
      */
