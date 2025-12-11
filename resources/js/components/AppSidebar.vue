@@ -72,11 +72,11 @@ const mainNavItems: NavItem[] = [
 
 
 const footerNavItems: NavItem[] = [
-    {
-        title: 'PSITS Portal',
-        href: 'https://psits.org',
-        icon: Globe,
-    },
+    // {
+    //     title: 'PSITS Portal',
+    //     href: '/login',
+    //     icon: Globe,
+    // },
     {
         title: 'Platform Guide',
         href: route('platform-guide'), // ✅ gi-fix ni diri
