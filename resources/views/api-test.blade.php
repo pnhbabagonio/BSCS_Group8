@@ -461,6 +461,10 @@
                             <li><code>GET /api/member/dashboard</code> - Get dashboard summary</li>
                             <li><code>GET /api/member/payments</code> - Get member payments</li>
                             <li><code>GET /api/member/requirements</code> - Get member requirements</li>
+                            <li><code>GET /api/member/joined-events</code> - Get member's joined events</li>
+                            <li><code>POST /api/events/{id}/register</code> - Join an event</li>
+                            <li><code>DELETE /api/events/{id}/unregister</code> - Cancel event registration</li>
+                            <li><code>GET /api/events/{id}/check-registration</code> - Check registration status</li>
                             <li><code>GET /api/events</code> - View all events</li>
                             <li><code>GET /api/protected-test</code> - Test protected endpoint</li>
                         </ul>
@@ -486,6 +490,11 @@
                 <button class="btn btn-member" onclick="getMemberPayments()">My Payments</button>
                 <button class="btn btn-member" onclick="getMemberRequirements()">Requirements</button>
                 <button class="btn" onclick="getEvents()">View Events</button>
+                <!-- Addition events button -->
+                <button class="btn btn-member" onclick="joinEvent()">Join Event</button>
+                <button class="btn btn-member" onclick="cancelEventRegistration()">Cancel Registration</button>
+                <button class="btn btn-member" onclick="checkEventRegistration()">Check Registration</button>
+                <button class="btn btn-member" onclick="getJoinedEvents()">My Joined Events</button>
                 <button class="btn" onclick="testProtected()">Test Protected</button>
                 <button class="btn" onclick="refreshToken()">Refresh Token</button>
                 <!-- Support Ticket Buttons -->
@@ -502,6 +511,8 @@
                     <li><strong>Payments:</strong> View your payment history</li>
                     <li><strong>Requirements:</strong> Check your requirements status</li>
                     <li><strong>Events:</strong> Browse upcoming events</li>
+                    <li><strong>Event Registration:</strong> Join and cancel event registrations</li>
+                    <li><strong>My Events:</strong> View all events you've registered for</li>
                     <li><strong>Support Tickets:</strong> Create and view support requests</li>
                     <li><strong>Security:</strong> Bearer token authentication</li>
                 </ul>
@@ -1083,6 +1094,116 @@
             
             if (presets[presetName]) {
                 serverConfig.save(presets[presetName].ip, presets[presetName].port);
+            }
+        }
+
+        // New: Join Event
+        async function joinEvent() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            const eventId = prompt('Enter Event ID to join:');
+            if (!eventId) return;
+            
+            try {
+                const response = await axios.post(`/api/events/${eventId}/register`);
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Event Registration Successful</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `<p><strong>Event:</strong> ${response.data.data.event.title}</p>` +
+                    `<p><strong>Date:</strong> ${response.data.data.event.date}</p>` +
+                    `<p><strong>Location:</strong> ${response.data.data.event.location}</p>` +
+                    `<p><strong>Message:</strong> ${response.data.message}</p>` +
+                    `<hr/>${JSON.stringify(response.data, null, 2)}`;
+            } catch (error) {
+                // Error handled by interceptor
+            }
+        }
+
+        // Cancel event registration
+        async function cancelEventRegistration() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            const eventId = prompt('Enter Event ID to cancel registration:');
+            if (!eventId) return;
+            
+            try {
+                const response = await axios.delete(`/api/events/${eventId}/unregister`);
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Registration Cancelled</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `<p><strong>Event ID:</strong> ${eventId}</p>` +
+                    `<p><strong>Message:</strong> ${response.data.message}</p>` +
+                    `<hr/>${JSON.stringify(response.data, null, 2)}`;
+            } catch (error) {
+                // Error handled by interceptor
+            }
+        }
+
+        // Check event registration status
+        async function checkEventRegistration() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            const eventId = prompt('Enter Event ID to check registration:');
+            if (!eventId) return;
+            
+            try {
+                const response = await axios.get(`/api/events/${eventId}/check-registration`);
+                const status = response.data.is_registered ? '✅ Registered' : '❌ Not Registered';
+                document.getElementById('result').innerHTML = 
+                    `<div class="status ${response.data.is_registered ? 'status-success' : 'status-error'}">${status}</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `<p><strong>Event ID:</strong> ${eventId}</p>` +
+                    `<p><strong>Registration Status:</strong> ${response.data.registration_status || 'Not registered'}</p>` +
+                    `<p><strong>Registered At:</strong> ${response.data.registered_at || 'N/A'}</p>` +
+                    `<hr/>${JSON.stringify(response.data, null, 2)}`;
+            } catch (error) {
+                // Error handled by interceptor
+            }
+        }
+
+        // Get joined events
+        async function getJoinedEvents() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            try {
+                const response = await axios.get('/api/member/joined-events');
+                const events = response.data.joined_events || [];
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Joined Events (${events.length})</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>`;
+                
+                if (events.length > 0) {
+                    events.forEach(event => {
+                        document.getElementById('result').innerHTML += 
+                            `<div style="border-left: 3px solid #38a169; padding: 10px; margin: 10px 0; background: #f0fff4;">
+                                <strong>${event.title}</strong><br/>
+                                Date: ${event.date} | Location: ${event.location}<br/>
+                                Status: ${event.event_status} | Your Status: ${event.attendance_status}<br/>
+                                Registered: ${new Date(event.registered_at).toLocaleDateString()}
+                            </div>`;
+                    });
+                }
+                
+                document.getElementById('result').innerHTML += 
+                    `<hr/><details><summary>View Raw Data</summary><pre>${JSON.stringify(response.data, null, 2)}</pre></details>`;
+            } catch (error) {
+                // Error handled by interceptor
             }
         }
     </script>

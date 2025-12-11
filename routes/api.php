@@ -33,10 +33,19 @@ Route::middleware(['auth:sanctum', 'member.access'])->group(function () {
         Route::get('/payments', [MemberController::class, 'payments']);
         Route::get('/requirements', [MemberController::class, 'requirements']);
         Route::get('/events', [MemberController::class, 'events']);
+        Route::get('/joined-events', [MemberController::class, 'joinedEvents']);
     });
     
     // Public events (members can view)
     Route::get('/events', [EventController::class, 'index']);
+
+    // NEW: Event registration endpoints
+    Route::prefix('events')->group(function () {
+        Route::get('/{event}', [EventController::class, 'show']);
+        Route::post('/{event}/register', [EventController::class, 'register']);
+        Route::delete('/{event}/unregister', [EventController::class, 'cancelRegistration']);
+        Route::get('/{event}/check-registration', [EventController::class, 'checkRegistration']);
+    });
 
     // Support Tickets
     Route::prefix('support-tickets')->group(function () {

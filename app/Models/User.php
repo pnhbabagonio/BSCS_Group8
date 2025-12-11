@@ -148,4 +148,11 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class, 'student_id', 'student_id')
                     ->whereNull('user_id');
     }
+
+
+    // Relationship with attendees (event registrations)
+    public function attendees()
+    {
+        return $this->hasMany(Attendee::class);
+    }
 }

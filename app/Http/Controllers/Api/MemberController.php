@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Requirement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MemberController extends Controller
 {
@@ -130,6 +131,39 @@ class MemberController extends Controller
                     'requirement' => $recentPayment->requirement->title ?? 'N/A'
                 ] : null
             ]
+        ]);
+    }
+
+    /**
+ * Get events that the authenticated member has joined
+ */
+    public function joinedEvents()
+    {
+        $user = Auth::user();
+        
+        $joinedEvents = $user->attendees()
+            ->with('event')
+            ->where('attendance_status', '!=', 'cancelled')
+            ->get()
+            ->map(function ($attendee) {
+                return [
+                    'id' => $attendee->event->id,
+                    'title' => $attendee->event->title,
+                    'description' => $attendee->event->description,
+                    'date' => $attendee->event->date,
+                    'time' => $attendee->event->time,
+                    'location' => $attendee->event->location,
+                    'category' => $attendee->event->category,
+                    'status' => $attendee->event->status,
+                    'attendance_status' => $attendee->attendance_status,
+                    'registered_at' => $attendee->created_at,
+                    'event_status' => $attendee->event->status
+                ];
+            });
+
+        return response()->json([
+            'joined_events' => $joinedEvents,
+            'total_count' => $joinedEvents->count()
         ]);
     }
 }
