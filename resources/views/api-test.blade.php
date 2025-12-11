@@ -48,6 +48,112 @@
             display: inline-block;
         }
         
+        /* Server Configuration Section */
+        .config-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .config-title {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .config-title::before {
+            content: "⚙️";
+        }
+        
+        .config-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+        
+        .config-form label {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .config-form input {
+            padding: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+        }
+        
+        .config-form input:focus {
+            outline: none;
+            border-color: white;
+            background: white;
+        }
+        
+        .btn-config {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-config:hover {
+            background: #f8f9fa;
+            transform: translateY(-1px);
+        }
+        
+        .server-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 15px;
+        }
+        
+        .server-status.connected {
+            background: rgba(72, 187, 120, 0.2);
+            color: #48bb78;
+        }
+        
+        .server-status.disconnected {
+            background: rgba(245, 101, 101, 0.2);
+            color: #f56565;
+        }
+        
+        .server-status::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .server-status.connected::before {
+            background: #48bb78;
+            box-shadow: 0 0 0 2px rgba(72, 187, 120, 0.3);
+        }
+        
+        .server-status.disconnected::before {
+            background: #f56565;
+            box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.3);
+        }
+        
         .api-section {
             background: white;
             border-radius: 10px;
@@ -75,7 +181,7 @@
             color: #555;
         }
         
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -84,7 +190,7 @@
             transition: border-color 0.3s;
         }
         
-        input:focus, select:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -247,6 +353,26 @@
             margin-right: 10px;
             font-size: 20px;
         }
+        
+        .current-server {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .current-server strong {
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .config-form {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -254,10 +380,32 @@
         <div class="header">
             <h1>🔐 PSITS-NEXUS Member API Testing</h1>
             <p>Test member-only API endpoints for PSITS-NEXUS system</p>
-            <p>Base URL: <strong>http://10.135.220.168:8000</strong></p>
-            <div class="subtitle">
-                <strong>Note:</strong> Registration is disabled. Only pre-registered PSITS members can login.
+        </div>
+        
+        <!-- Server Configuration Section -->
+        <div class="config-section">
+            <h3 class="config-title">Server Configuration</h3>
+            <form id="serverConfigForm">
+                <div class="config-form">
+                    <div class="form-group">
+                        <label for="serverIp">Server IP Address</label>
+                        <input type="text" id="serverIp" placeholder="10.98.66.168" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverPort">Port</label>
+                        <input type="text" id="serverPort" placeholder="8000" required>
+                    </div>
+                    <button type="submit" class="btn-config">Update Server Settings</button>
+                </div>
+            </form>
+            <div class="current-server">
+                <span>Current Server:</span>
+                <strong id="currentServerUrl">http://10.98.66.168:8000</strong>
+                <span id="serverStatus" class="server-status disconnected">Disconnected</span>
             </div>
+            <p style="color: rgba(255, 255, 255, 0.8); margin-top: 10px; font-size: 14px;">
+                <strong>Tip:</strong> Change this when connecting from different networks. Example: Home WiFi might use 192.168.1.100
+            </p>
         </div>
         
         <div class="api-section">
@@ -340,6 +488,10 @@
                 <button class="btn" onclick="getEvents()">View Events</button>
                 <button class="btn" onclick="testProtected()">Test Protected</button>
                 <button class="btn" onclick="refreshToken()">Refresh Token</button>
+                <!-- Support Ticket Buttons -->
+                <button class="btn" onclick="createSupportTicket()">Create Support Ticket</button>
+                <button class="btn" onclick="getMyTickets()">View My Tickets</button>
+                <button class="btn" onclick="getTicketDetails()">Get Ticket Details</button>
             </div>
             
             <div class="instructions">
@@ -350,13 +502,11 @@
                     <li><strong>Payments:</strong> View your payment history</li>
                     <li><strong>Requirements:</strong> Check your requirements status</li>
                     <li><strong>Events:</strong> Browse upcoming events</li>
+                    <li><strong>Support Tickets:</strong> Create and view support requests</li>
                     <li><strong>Security:</strong> Bearer token authentication</li>
                 </ul>
             </div>
         </div>
-
-        <!-- Add to your button group in the authSection -->
-        <button class="btn" onclick="createSupportTicket()">Create Support Ticket</button>
 
         <!-- Add a new section for ticket creation -->
         <div class="api-section" id="ticketSection" style="display: none;">
@@ -424,17 +574,144 @@
     </div>
 
     <script>
-        const BASE_URL = 'http://10.135.220.168:8000/api';
+        // Server Configuration Management
+        class ServerConfig {
+            constructor() {
+                this.ip = localStorage.getItem('psits_server_ip') || '10.98.66.168';
+                this.port = localStorage.getItem('psits_server_port') || '8000';
+                this.baseUrl = `http://${this.ip}:${this.port}`;
+                this.apiBaseUrl = `${this.baseUrl}/api`;
+            }
+            
+            save(ip, port) {
+                this.ip = ip;
+                this.port = port;
+                this.baseUrl = `http://${ip}:${port}`;
+                this.apiBaseUrl = `${this.baseUrl}/api`;
+                
+                localStorage.setItem('psits_server_ip', ip);
+                localStorage.setItem('psits_server_port', port);
+                
+                // Update axios defaults
+                axios.defaults.baseURL = this.baseUrl;
+                
+                // Update UI
+                this.updateUI();
+                this.testConnection();
+                
+                return this.baseUrl;
+            }
+            
+            updateUI() {
+                document.getElementById('serverIp').value = this.ip;
+                document.getElementById('serverPort').value = this.port;
+                document.getElementById('currentServerUrl').textContent = this.baseUrl;
+                document.title = `PSITS-NEXUS API Testing - ${this.baseUrl}`;
+            }
+            
+            async testConnection() {
+                const statusElement = document.getElementById('serverStatus');
+                statusElement.textContent = 'Testing...';
+                statusElement.className = 'server-status disconnected';
+                
+                try {
+                    // Try to reach the server with a simple HEAD request or timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    
+                    const response = await fetch(`${this.baseUrl}/api/hello`, {
+                        method: 'GET',
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        statusElement.textContent = 'Connected';
+                        statusElement.className = 'server-status connected';
+                    } else {
+                        statusElement.textContent = 'Server Error';
+                        statusElement.className = 'server-status disconnected';
+                    }
+                } catch (error) {
+                    statusElement.textContent = 'Disconnected';
+                    statusElement.className = 'server-status disconnected';
+                }
+            }
+            
+            getBaseUrl() {
+                return this.baseUrl;
+            }
+            
+            getApiBaseUrl() {
+                return this.apiBaseUrl;
+            }
+        }
+
+        // Initialize server configuration
+        const serverConfig = new ServerConfig();
         let authToken = localStorage.getItem('psits_api_token') || null;
         let currentUser = null;
         
-        // Check if user is already logged in
-        if (authToken) {
-            checkAndRestoreSession();
-        }
+        // Initialize UI
+        document.addEventListener('DOMContentLoaded', () => {
+            serverConfig.updateUI();
+            serverConfig.testConnection();
+            
+            // Check if user is already logged in
+            if (authToken) {
+                checkAndRestoreSession();
+            }
+            
+            // Pre-fill login form
+            document.getElementById('email').value = 'member@example.com';
+            document.getElementById('password').value = 'password123';
+            document.getElementById('device_name').value = 'PSITS Web Browser';
+        });
         
         // Configure axios defaults
-        axios.defaults.baseURL = 'http://10.135.220.168:8000';
+        axios.defaults.baseURL = serverConfig.getBaseUrl();
+        
+        // Server configuration form handler
+        document.getElementById('serverConfigForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const ip = document.getElementById('serverIp').value.trim();
+            const port = document.getElementById('serverPort').value.trim();
+            
+            // Basic validation
+            if (!ip || !port) {
+                alert('Please enter both IP address and port');
+                return;
+            }
+            
+            // Simple IP validation
+            const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (!ipPattern.test(ip)) {
+                alert('Please enter a valid IPv4 address (e.g., 10.98.66.168)');
+                return;
+            }
+            
+            // Save configuration
+            serverConfig.save(ip, port);
+            
+            // Clear auth token when changing servers (for security)
+            if (authToken) {
+                authToken = null;
+                localStorage.removeItem('psits_api_token');
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('tokenInfo').style.display = 'none';
+                
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">Server configuration updated</div>` +
+                    `<p>Server changed to: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `<p>You have been logged out. Please login again with the new server.</p>`;
+            } else {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">Server configuration updated</div>` +
+                    `<p>Server changed to: <strong>${serverConfig.getBaseUrl()}</strong></p>`;
+            }
+        });
         
         // Add request interceptor to add token
         axios.interceptors.request.use(config => {
@@ -462,7 +739,8 @@
                         resultDiv.innerHTML = `<div class="status status-error">Error ${error.response.status}</div>${JSON.stringify(error.response.data, null, 2)}`;
                     }
                 } else if (error.request) {
-                    resultDiv.innerHTML = `<div class="status status-error">Network Error</div>Cannot connect to server. Check if server is running at ${BASE_URL}`;
+                    resultDiv.innerHTML = `<div class="status status-error">Network Error</div>Cannot connect to server at ${serverConfig.getBaseUrl()}. Check if server is running.`;
+                    serverConfig.testConnection();
                 } else {
                     resultDiv.innerHTML = `<div class="status status-error">Request Error</div>${error.message}`;
                 }
@@ -521,7 +799,11 @@
                     `<div class="status status-success">✅ Login Successful</div>` +
                     `<p>Welcome back, ${currentUser.name}!</p>` +
                     `<p>Role: <strong>${currentUser.role}</strong></p>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
                     `<p>Token generated for: ${device_name}</p>`;
+                    
+                // Update server status
+                serverConfig.testConnection();
                     
             } catch (error) {
                 // Error handled by interceptor
@@ -533,7 +815,12 @@
             try {
                 const response = await axios.get('/api/hello');
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Public API Working</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Public API Working</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
+                    
+                // Update server status
+                serverConfig.testConnection();
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -548,7 +835,9 @@
                 document.getElementById('loggedInRole').textContent = currentUser.role || 'Member';
                 
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ User Info Retrieved</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ User Info Retrieved</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -559,7 +848,9 @@
             try {
                 const response = await axios.get('/api/member/profile');
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Member Profile</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Member Profile</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -570,7 +861,9 @@
             try {
                 const response = await axios.get('/api/member/dashboard');
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Dashboard Summary</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Dashboard Summary</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -582,7 +875,9 @@
                 const response = await axios.get('/api/member/payments');
                 const payments = response.data.payments || [];
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Member Payments (${payments.length})</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Member Payments (${payments.length})</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -598,6 +893,7 @@
                 
                 document.getElementById('result').innerHTML = 
                     `<div class="status status-success">✅ Member Requirements</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
                     `<p>Total: ${requirements.length} | Paid: ${paidCount} | Unpaid: ${unpaidCount}</p>` +
                     `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
@@ -611,7 +907,9 @@
                 const response = await axios.get('/api/events');
                 const events = response.data.events || [];
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Events (${events.length})</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Events (${events.length})</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -622,7 +920,9 @@
             try {
                 const response = await axios.get('/api/protected-test');
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Protected Endpoint Accessed</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Protected Endpoint Accessed</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -637,7 +937,9 @@
                 document.getElementById('tokenDisplay').textContent = authToken.substring(0, 50) + '...';
                 
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Token Refreshed</div>${JSON.stringify(response.data, null, 2)}`;
+                    `<div class="status status-success">✅ Token Refreshed</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
             } catch (error) {
                 // Error handled by interceptor
             }
@@ -657,91 +959,132 @@
                 document.getElementById('loginForm').reset();
                 
                 document.getElementById('result').innerHTML = 
-                    `<div class="status status-success">✅ Logged out successfully</div>`;
+                    `<div class="status status-success">✅ Logged out successfully</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>`;
                     
             } catch (error) {
                 // Error handled by interceptor
             }
         }
         
-        // Pre-fill with test data for easy testing
-        window.addEventListener('load', () => {
-            document.getElementById('email').value = 'member@example.com';
-            document.getElementById('password').value = 'password123';
-            document.getElementById('device_name').value = 'PSITS Web Browser';
+        // Show/hide ticket form
+        function toggleTicketForm() {
+            const ticketSection = document.getElementById('ticketSection');
+            ticketSection.style.display = ticketSection.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Show ticket creation form with pre-filled data
+        function createSupportTicket() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first to create a support ticket.`;
+                return;
+            }
+            
+            // Show the form
+            toggleTicketForm();
+            
+            // Pre-fill form with test data
+            document.getElementById('ticketSubject').value = 'Unable to access member dashboard';
+            document.getElementById('ticketMessage').value = 'I\'m experiencing issues accessing my member dashboard. When I try to log in, I get redirected to the homepage. This started happening yesterday.';
+            document.getElementById('ticketCategory').value = 'technical';
+            document.getElementById('ticketPriority').value = 'medium';
+            document.getElementById('ticketAttachments').value = '';
+        }
+
+        // Get user's support tickets
+        async function getMyTickets() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            try {
+                const response = await axios.get('/api/support-tickets');
+                const tickets = response.data.data.tickets || [];
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Your Support Tickets (${tickets.length})</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
+            } catch (error) {
+                // Error handled by interceptor
+            }
+        }
+
+        // Get specific ticket details
+        async function getTicketDetails() {
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            const ticketId = prompt('Enter Ticket ID:');
+            if (!ticketId) return;
+            
+            try {
+                const response = await axios.get(`/api/support-tickets/${ticketId}`);
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Ticket Details</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `${JSON.stringify(response.data, null, 2)}`;
+            } catch (error) {
+                // Error handled by interceptor
+            }
+        }
+
+        // Handle ticket form submission
+        document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!authToken) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-error">❌ Not Authenticated</div>Please login first.`;
+                return;
+            }
+            
+            const ticketData = {
+                subject: document.getElementById('ticketSubject').value,
+                message: document.getElementById('ticketMessage').value,
+                category: document.getElementById('ticketCategory').value,
+                priority: document.getElementById('ticketPriority').value,
+                attachments: document.getElementById('ticketAttachments').value 
+                    ? document.getElementById('ticketAttachments').value.split(',').map(item => item.trim())
+                    : []
+            };
+            
+            try {
+                const response = await axios.post('/api/support-tickets', ticketData);
+                document.getElementById('result').innerHTML = 
+                    `<div class="status status-success">✅ Ticket Created Successfully</div>` +
+                    `<p>Server: <strong>${serverConfig.getBaseUrl()}</strong></p>` +
+                    `<p><strong>Ticket ID:</strong> ${response.data.data.ticket.id}</p>` +
+                    `<p><strong>Reference:</strong> ${response.data.data.reference_number}</p>` +
+                    `<p><strong>Message:</strong> ${response.data.message}</p>` +
+                    `<hr/>${JSON.stringify(response.data, null, 2)}`;
+                
+                // Hide form and reset
+                toggleTicketForm();
+                document.getElementById('ticketForm').reset();
+                
+            } catch (error) {
+                // Error handled by interceptor
+            }
         });
 
-    
-    // Create Support Ticket
-    // Show/hide ticket form
-    function toggleTicketForm() {
-        const ticketSection = document.getElementById('ticketSection');
-        ticketSection.style.display = ticketSection.style.display === 'none' ? 'block' : 'none';
-    }
-
-    // Create support ticket
-    async function createSupportTicket() {
-        // Show the form
-        toggleTicketForm();
-        
-        // Pre-fill form with test data
-        document.getElementById('ticketSubject').value = 'Unable to access member dashboard';
-        document.getElementById('ticketMessage').value = 'I\'m experiencing issues accessing my member dashboard. When I try to log in, I get redirected to the homepage. This started happening yesterday.';
-        document.getElementById('ticketCategory').value = 'technical';
-        document.getElementById('ticketPriority').value = 'medium';
-        document.getElementById('ticketAttachments').value = '';
-    }
-
-    // Handle ticket form submission
-    document.getElementById('ticketForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const ticketData = {
-            subject: document.getElementById('ticketSubject').value,
-            message: document.getElementById('ticketMessage').value,
-            category: document.getElementById('ticketCategory').value,
-            priority: document.getElementById('ticketPriority').value,
-            attachments: document.getElementById('ticketAttachments').value 
-                ? document.getElementById('ticketAttachments').value.split(',').map(item => item.trim())
-                : []
-        };
-        
-        try {
-            const response = await axios.post('/api/support-tickets', ticketData);
-            document.getElementById('result').innerHTML = 
-                `<div class="status status-success">✅ Ticket Created Successfully</div>` +
-                `<p><strong>Reference:</strong> ${response.data.data.reference_number}</p>` +
-                `<p>${response.data.instructions}</p>` +
-                `${JSON.stringify(response.data, null, 2)}`;
+        // Quick server presets (optional - you can add this feature)
+        function setServerPreset(presetName) {
+            const presets = {
+                'lab': { ip: '10.98.66.168', port: '8000' },
+                'home': { ip: '192.168.1.100', port: '8000' },
+                'mobile': { ip: '192.168.43.1', port: '8000' }
+            };
             
-            // Hide form and reset
-            toggleTicketForm();
-            document.getElementById('ticketForm').reset();
-            
-        } catch (error) {
-            // Error handled by interceptor
+            if (presets[presetName]) {
+                serverConfig.save(presets[presetName].ip, presets[presetName].port);
+            }
         }
-    });
-
-    // Add CSS for textarea
-    const style = document.createElement('style');
-    style.textContent = `
-        textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 16px;
-            font-family: inherit;
-            transition: border-color 0.3s;
-            resize: vertical;
-        }
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-    `;
-    document.head.appendChild(style);
     </script>
 </body>
 </html>
