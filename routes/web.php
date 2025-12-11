@@ -114,6 +114,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/records', [PaymentController::class, 'store'])->name('records.store');
     Route::put('/records/{payment}', [PaymentController::class, 'update'])->name('records.update');
     Route::delete('/records/{payment}', [PaymentController::class, 'destroy'])->name('records.destroy');
+    Route::post('/records/batch-delete', [PaymentController::class, 'batchDestroy'])->name('records.batch-destroy');
 
     // Additional payment routes
     Route::get('/records/stats', [PaymentController::class, 'getStats'])->name('records.stats');

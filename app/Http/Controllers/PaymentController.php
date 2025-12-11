@@ -20,14 +20,14 @@ class PaymentController extends Controller
         // Search filter - search in both user names and manual names
         if ($request->has('search') && $request->search !== '') {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->whereHas('user', function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
-                      ->orWhere('middle_name', 'like', "%{$search}%")
-                      ->orWhere('last_name', 'like', "%{$search}%");
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
                 })->orWhere('first_name', 'like', "%{$search}%")
-                  ->orWhere('middle_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%");
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%");
             });
         }
 
@@ -88,7 +88,7 @@ class PaymentController extends Controller
                     'middle_name' => $user->middle_name ?? $this->extractMiddleName($user->name),
                     'last_name' => $user->last_name ?? $this->extractLastName($user->name),
                     'student_id' => $user->student_id,
-                    'full_name' => $user->first_name && $user->last_name 
+                    'full_name' => $user->first_name && $user->last_name
                         ? trim("{$user->first_name} {$user->middle_name} {$user->last_name}")
                         : $user->name,
                 ];
@@ -252,6 +252,37 @@ class PaymentController extends Controller
         }
 
         return redirect()->route('records.index')->with('success', 'Payment record deleted successfully.');
+    }
+
+    /**
+     * Delete multiple payment records (batch delete)
+     */
+    public function batchDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'payment_ids' => ['required', 'array', 'min:1'],
+            'payment_ids.*' => ['integer', 'exists:payments,id'],
+        ]);
+
+        $payments = Payment::whereIn('id', $validated['payment_ids'])->get();
+        $requirementIds = $payments->pluck('requirement_id')->unique();
+
+        // Delete all selected payments
+        foreach ($payments as $payment) {
+            $payment->delete();
+        }
+
+        // Update counts for all affected requirements
+        foreach ($requirementIds as $requirementId) {
+            $this->updateRequirementCounts($requirementId);
+        }
+
+        // Return JSON response for API calls
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['success' => 'Payment records deleted successfully.']);
+        }
+
+        return redirect()->route('records.index')->with('success', 'Selected payment records deleted successfully.');
     }
 
     /**

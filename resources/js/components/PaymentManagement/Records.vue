@@ -14,6 +14,7 @@ import {
     UserPlus,
     Download,
     Check,
+    FileText,
 } from "lucide-vue-next"
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -174,12 +175,12 @@ function downloadSelectedRecords() {
         selectedRecords.value.has(payment.id)
     )
 
-    // CSV headers
-    const headers = ['ID', 'Student Name', 'Student ID', 'Requirement', 'Amount Paid', 'Date Paid', 'Payment Method', 'Status', 'Notes']
+    // CSV title and headers (removed ID column)
+    const title = 'Payment Records';
+    const headers = ['Student Name', 'Student ID', 'Requirement', 'Amount Paid', 'Date Paid', 'Payment Method', 'Status', 'Notes']
 
     // CSV rows
     const rows = selectedPayments.map(payment => [
-        payment.id,
         `"${getDisplayName(payment)}"`,
         payment.user_id && payment.user ? payment.user.student_id || '' : payment.student_id || '',
         `"${payment.requirement.title}"`,
@@ -190,8 +191,10 @@ function downloadSelectedRecords() {
         `"${payment.notes || ''}"`,
     ])
 
-    // Combine headers and rows
+    // Combine title, empty line, headers and rows
     const csvContent = [
+        title,
+        '', // Empty line for spacing
         headers.join(','),
         ...rows.map(row => row.join(','))
     ].join('\n')
@@ -212,6 +215,28 @@ function downloadSelectedRecords() {
     // Reset selection
     selectedRecords.value.clear()
     isSelectionMode.value = false
+}
+
+function deleteSelectedRecords() {
+    if (selectedRecords.value.size === 0) {
+        alert('Please select at least one record to delete')
+        return
+    }
+
+    const message = selectedRecords.value.size === 1
+        ? 'Are you sure you want to delete this payment record? This action cannot be undone.'
+        : `Are you sure you want to delete ${selectedRecords.value.size} payment records? This action cannot be undone.`
+
+    if (confirm(message)) {
+        router.post(route('records.batch-destroy'), {
+            payment_ids: Array.from(selectedRecords.value),
+        }, {
+            onSuccess: () => {
+                selectedRecords.value.clear()
+                isSelectionMode.value = false
+            },
+        })
+    }
 }
 
 function loadRecords() {
@@ -448,14 +473,25 @@ onMounted(() => {
 <template>
     <div class="p-6 text-foreground">
         <!-- Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
                 <h2 class="text-2xl font-bold">Payment Records</h2>
                 <p class="text-muted-foreground">Manage and track all payment transactions</p>
             </div>
-            <div class="flex gap-2">
-                <Button @click="toggleSelectionMode" :variant="isSelectionMode ? 'default' : 'outline'" class="gap-2">
-                    <Download class="w-4 h-4" /> Download
+            <div class="flex items-center gap-3">
+                <Button :variant="isSelectionMode ? 'default' : 'outline'" @click="toggleSelectionMode">
+                    <FileText class="mr-2 h-4 w-4" />
+                    {{ isSelectionMode ? 'Cancel' : 'Select' }}
+                </Button>
+                <Button v-if="isSelectionMode && selectedRecords.size > 0" variant="outline"
+                    @click="downloadSelectedRecords">
+                    <Download class="mr-2 h-4 w-4" />
+                    Download CSV ({{ selectedRecords.size }})
+                </Button>
+                <Button v-if="isSelectionMode && selectedRecords.size > 0" variant="destructive"
+                    @click="deleteSelectedRecords">
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    Delete ({{ selectedRecords.size }})
                 </Button>
                 <Button @click="openAddModal" class="gap-2">
                     <Plus class="w-4 h-4" /> Add Record
@@ -500,21 +536,6 @@ onMounted(() => {
                 <!-- Clear Filter -->
                 <Button v-if="paymentFilter !== 'All' || search" @click="clearFilters" variant="outline">
                     Clear Filters
-                </Button>
-            </div>
-
-            <!-- Selection Mode Controls -->
-            <div v-if="isSelectionMode"
-                class="flex items-center gap-3 mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <span class="text-sm font-medium">
-                    {{ selectedRecords.size }} record{{ selectedRecords.size !== 1 ? 's' : '' }} selected
-                </span>
-                <div class="flex-1"></div>
-                <Button @click="downloadSelectedRecords" :disabled="!isAnySelected" class="gap-2">
-                    <Download class="w-4 h-4" /> Download Selected
-                </Button>
-                <Button @click="toggleSelectionMode" variant="outline" class="gap-2">
-                    <X class="w-4 h-4" /> Cancel
                 </Button>
             </div>
 

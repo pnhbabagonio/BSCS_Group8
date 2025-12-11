@@ -181,6 +181,47 @@ const exportToCSV = () => {
   document.body.removeChild(link);
 };
 
+// Export selected tickets to CSV
+const exportSelectedToCSV = () => {
+  if (selectedTickets.value.length === 0) {
+    alert('Please select at least one ticket to export');
+    return;
+  }
+
+  // Filter tickets by selected IDs
+  const selectedTicketData = props.tickets.filter(ticket => selectedTickets.value.includes(ticket.id));
+
+  // Create CSV content with title
+  const title = 'Support Tickets';
+  const headers = ['Subject', 'Category', 'Priority', 'Status', 'User', 'Email', 'Created At', 'Updated At'];
+  const csvContent = [
+    title,
+    '', // Empty line for spacing
+    headers.join(','),
+    ...selectedTicketData.map(ticket => [
+      `"${ticket.subject.replace(/"/g, '""')}"`,
+      ticket.category,
+      ticket.priority,
+      ticket.status,
+      `"${(ticket.user?.name || 'Unknown').replace(/"/g, '""')}"`,
+      ticket.user?.email || 'No email',
+      ticket.created_at,
+      ticket.updated_at,
+    ].join(','))
+  ].join('\n');
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `support-tickets-selected-${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 // Toggle selection mode
 const toggleSelectionMode = () => {
   selectionMode.value = !selectionMode.value;
@@ -255,13 +296,13 @@ const deleteSelectedTickets = () => {
           <p class="text-muted-foreground">View and manage submitted support requests</p>
         </div>
         <div class="flex items-center gap-3">
-          <Button variant="outline" @click="exportToCSV">
-            <Download class="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
           <Button :variant="selectionMode ? 'default' : 'outline'" @click="toggleSelectionMode">
             <FileText class="mr-2 h-4 w-4" />
             {{ selectionMode ? 'Cancel' : 'Select' }}
+          </Button>
+          <Button v-if="selectionMode && selectedTickets.length > 0" variant="outline" @click="exportSelectedToCSV">
+            <Download class="mr-2 h-4 w-4" />
+            Download CSV ({{ selectedTickets.length }})
           </Button>
           <Button v-if="selectionMode && selectedTickets.length > 0" variant="destructive"
             @click="deleteSelectedTickets">
