@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Search, UserPlus, Loader2, Users, X, CheckCircle, XCircle } from 'lucide-vue-next'
-import { watch } from 'vue'
+import { Search, UserPlus, Loader2, Users, X, CheckCircle, XCircle, Calendar, UserCheck, UserX } from 'lucide-vue-next'
 
 interface Event {
     id: number
@@ -35,6 +34,12 @@ interface User {
     year: string
     role: string
     status: string
+    event_registration: {
+        id: number
+        attendance_status: 'registered' | 'attended' | 'cancelled'
+        registered_at: string
+    } | null
+    total_registrations: number
 }
 
 interface Attendee {
@@ -45,13 +50,40 @@ interface Attendee {
     user_email: string
     student_id: string
     program: string
-    attendance_status: string
+    attendance_status: 'registered' | 'attended' | 'cancelled'
     registered_at: string
 }
 
 const props = defineProps<{
     events: Event[]
 }>()
+
+// Add this state for dropdown management
+const activeStatusDropdown = ref<number | null>(null)
+
+
+
+// Close dropdown when clicking outside
+const closeDropdown = () => {
+    activeStatusDropdown.value = null
+}
+
+// Add click outside listener in onMounted
+onMounted(() => {
+    fetchUsers()
+    document.addEventListener('click', closeDropdown)
+})
+
+
+
+// Add this computed property to get user status safely:
+const userEventStatuses = computed(() => {
+    const statuses: Record<number, string> = {}
+    eventAttendees.value.forEach(attendee => {
+        statuses[attendee.user_id] = attendee.attendance_status
+    })
+    return statuses
+})
 
 // State
 const selectedEventId = ref<number | null>(null)
@@ -85,6 +117,12 @@ const availableUsers = computed(() => {
     return filteredUsers.value.filter(user => !registeredUserIds.includes(user.id))
 })
 
+const registeredUsers = computed(() => {
+    return filteredUsers.value.filter(user => 
+        eventAttendees.value.some(attendee => attendee.user_id === user.id)
+    )
+})
+
 const isEventSelected = computed(() => selectedEventId.value !== null)
 
 const canRegisterMore = computed(() => {
@@ -96,7 +134,11 @@ const canRegisterMore = computed(() => {
 const fetchUsers = async () => {
     isLoadingUsers.value = true
     try {
-        const response = await fetch('/user-management-data') // We'll create this route
+        const url = selectedEventId.value 
+            ? `/user-management-data?event_id=${selectedEventId.value}`
+            : '/user-management-data'
+        
+        const response = await fetch(url)
         if (response.ok) {
             const data = await response.json()
             users.value = data.users || []
@@ -112,7 +154,7 @@ const fetchUsers = async () => {
 const fetchEventAttendees = async (eventId: number) => {
     isLoadingAttendees.value = true
     try {
-        const response = await fetch(`/events/${eventId}/attendees`) // We'll create this route
+        const response = await fetch(`/events/${eventId}/attendees`)
         if (response.ok) {
             const data = await response.json()
             eventAttendees.value = data.attendees || []
@@ -125,13 +167,43 @@ const fetchEventAttendees = async (eventId: number) => {
     }
 }
 
+const getRegistrationStatusBadgeVariant = (status: string) => {
+    switch(status) {
+        case 'registered': return 'secondary'
+        case 'attended': return 'default'    // Changed from 'success' to 'default'
+        case 'cancelled': return 'destructive'
+        default: return 'outline'
+    }
+}
+
+const getRegistrationIcon = (status: string) => {
+    switch(status) {
+        case 'registered': return UserCheck
+        case 'attended': return CheckCircle
+        case 'cancelled': return UserX
+        default: return Calendar
+    }
+}
+
 const toggleUserSelection = (userId: number) => {
+    // Don't allow selection of users already registered for this event
+    if (isUserRegisteredForEvent(userId)) return
+    
     const index = selectedUsers.value.indexOf(userId)
     if (index > -1) {
         selectedUsers.value.splice(index, 1)
     } else {
         selectedUsers.value.push(userId)
     }
+}
+
+const isUserRegisteredForEvent = (userId: number) => {
+    return eventAttendees.value.some(attendee => attendee.user_id === userId)
+}
+
+const getUserEventStatus = (userId: number) => {
+    const attendee = eventAttendees.value.find(a => a.user_id === userId)
+    return attendee ? attendee.attendance_status : null
 }
 
 const registerSelectedUsers = async () => {
@@ -141,12 +213,12 @@ const registerSelectedUsers = async () => {
     errors.value = {}
 
     try {
-        // Use Inertia post method instead of fetch
         router.post(`/events/${selectedEventId.value}/register-attendees`, {
             user_ids: selectedUsers.value
         }, {
             onSuccess: () => {
-                // Refresh attendees list
+                // Refresh both users and attendees lists
+                fetchUsers()
                 fetchEventAttendees(selectedEventId.value!)
                 // Clear selection
                 selectedUsers.value = []
@@ -172,6 +244,7 @@ const removeAttendee = async (attendeeId: number) => {
         router.delete(`/attendees/${attendeeId}`, {
             onSuccess: () => {
                 fetchEventAttendees(selectedEventId.value!)
+                fetchUsers() // Refresh user list to update registration status
             },
             onError: () => {
                 errors.value.general = 'Failed to remove attendee'
@@ -189,6 +262,7 @@ const updateAttendanceStatus = async (attendeeId: number, status: string) => {
         }, {
             onSuccess: () => {
                 fetchEventAttendees(selectedEventId.value!)
+                fetchUsers() // Refresh user list to update registration status
             },
             onError: () => {
                 errors.value.general = 'Failed to update attendance status'
@@ -208,8 +282,10 @@ const clearSelection = () => {
 watch(selectedEventId, (newEventId) => {
     if (newEventId) {
         fetchEventAttendees(newEventId)
+        fetchUsers() // Fetch users with event-specific registration data
     } else {
         eventAttendees.value = []
+        fetchUsers() // Fetch general user data
     }
 })
 
@@ -279,9 +355,12 @@ onMounted(() => {
                     <CardTitle class="flex items-center gap-2">
                         <UserPlus class="h-5 w-5" />
                         Register Attendees
+                        <Badge variant="outline" class="ml-2">
+                            {{ availableUsers.length }} available
+                        </Badge>
                     </CardTitle>
                     <CardDescription>
-                        Search and select users to register for this event
+                        Search and select users to register for this event. Users already registered are shown with their status.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -316,7 +395,7 @@ onMounted(() => {
                         <!-- Selected Users Count -->
                         <div v-if="selectedUsers.length > 0" class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                             <span class="text-sm font-medium">
-                                {{ selectedUsers.length }} user(s) selected
+                                {{ selectedUsers.length }} user(s) selected for registration
                             </span>
                             <Button @click="clearSelection" variant="ghost" size="sm">
                                 <X class="h-4 w-4" />
@@ -325,34 +404,82 @@ onMounted(() => {
 
                         <!-- Users List -->
                         <div class="space-y-2 max-h-96 overflow-y-auto">
-                            <div
-                                v-for="user in availableUsers"
-                                :key="user.id"
-                                @click="toggleUserSelection(user.id)"
-                                class="flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50"
-                                :class="selectedUsers.includes(user.id) ? 'bg-primary/10 border-primary' : ''"
-                            >
-                                <div class="flex-1 min-w-0">
-                                    <p class="font-medium text-sm truncate">{{ user.name }}</p>
-                                    <p class="text-xs text-muted-foreground truncate">{{ user.email }}</p>
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <Badge variant="outline" class="text-xs">
-                                            {{ user.student_id || 'No ID' }}
-                                        </Badge>
-                                        <Badge variant="secondary" class="text-xs">
-                                            {{ user.program }}
-                                        </Badge>
-                                    </div>
+                            <!-- Registered Users Section -->
+                            <div v-if="registeredUsers.length > 0" class="space-y-2">
+                                <div class="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">
+                                    Already Registered ({{ registeredUsers.length }})
                                 </div>
-                                <div class="flex items-center gap-2 ml-2">
-                                    <CheckCircle 
-                                        v-if="selectedUsers.includes(user.id)" 
-                                        class="h-5 w-5 text-primary" 
-                                    />
+                                <div
+                                    v-for="user in registeredUsers"
+                                    :key="user.id"
+                                    class="flex items-center justify-between p-3 border rounded-lg bg-muted/30 cursor-not-allowed"
+                                >
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-medium text-sm truncate">{{ user.name }}</p>
+                                        <p class="text-xs text-muted-foreground truncate">{{ user.email }}</p>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <Badge variant="outline" class="text-xs">
+                                                {{ user.student_id || 'No ID' }}
+                                            </Badge>
+                                            <Badge variant="secondary" class="text-xs">
+                                                {{ user.program }}
+                                            </Badge>
+                                            <Badge 
+                                                v-if="userEventStatuses[user.id]" 
+                                                :variant="getRegistrationStatusBadgeVariant(userEventStatuses[user.id])"
+                                                class="text-xs flex items-center gap-1"
+                                            >
+                                                <component 
+                                                    :is="getRegistrationIcon(userEventStatuses[user.id])" 
+                                                    class="h-3 w-3" 
+                                                />
+                                                {{ userEventStatuses[user.id] }}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <XCircle class="h-5 w-5 text-muted-foreground" />
                                 </div>
                             </div>
 
-                            <div v-if="availableUsers.length === 0 && !isLoadingUsers" class="text-center py-8 text-muted-foreground">
+                            <!-- Available Users Section -->
+                            <div v-if="availableUsers.length > 0" class="space-y-2">
+                                <div class="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">
+                                    Available for Registration ({{ availableUsers.length }})
+                                </div>
+                                <div
+                                    v-for="user in availableUsers"
+                                    :key="user.id"
+                                    @click="toggleUserSelection(user.id)"
+                                    class="flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50"
+                                    :class="selectedUsers.includes(user.id) ? 'bg-primary/10 border-primary' : ''"
+                                >
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-medium text-sm truncate">{{ user.name }}</p>
+                                        <p class="text-xs text-muted-foreground truncate">{{ user.email }}</p>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <Badge variant="outline" class="text-xs">
+                                                {{ user.student_id || 'No ID' }}
+                                            </Badge>
+                                            <Badge variant="secondary" class="text-xs">
+                                                {{ user.program }}
+                                            </Badge>
+                                            <Badge v-if="user.total_registrations > 0" variant="outline" class="text-xs">
+                                                <Calendar class="h-3 w-3 inline mr-1" />
+                                                {{ user.total_registrations }} events
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 ml-2">
+                                        <CheckCircle 
+                                            v-if="selectedUsers.includes(user.id)" 
+                                            class="h-5 w-5 text-primary" 
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Empty States -->
+                            <div v-if="filteredUsers.length === 0 && !isLoadingUsers" class="text-center py-8 text-muted-foreground">
                                 <Users class="h-12 w-12 mx-auto mb-2 opacity-50" />
                                 <p>No users found</p>
                             </div>
@@ -398,67 +525,110 @@ onMounted(() => {
                         Manage existing registrations for this event
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div class="space-y-4">
-                        <!-- Attendees Table -->
-                        <div class="border rounded-lg">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead class="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow v-for="attendee in eventAttendees" :key="attendee.id">
-                                        <TableCell>
-                                            <div>
-                                                <p class="font-medium text-sm">{{ attendee.user_name }}</p>
-                                                <p class="text-xs text-muted-foreground">{{ attendee.user_email }}</p>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select 
-                                                :value="attendee.attendance_status" 
-                                                @update:value="(value:any) => updateAttendanceStatus(attendee.id, value)"
-                                            >
-                                                <SelectTrigger class="w-32">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="registered">Registered</SelectItem>
-                                                    <SelectItem value="attended">Attended</SelectItem>
-                                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell class="text-right">
-                                            <Button
-                                                @click="removeAttendee(attendee.id)"
-                                                variant="ghost"
-                                                size="sm"
-                                                class="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            >
-                                                <X class="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
+                    <CardContent>
+                        <div class="space-y-4">
+                            <!-- Attendees Table -->
+                            <div class="border rounded-lg">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Registered At</TableHead>
+                                            <TableHead class="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow v-for="attendee in eventAttendees" :key="attendee.id">
+                                            <TableCell>
+                                                <div>
+                                                    <p class="font-medium text-sm">{{ attendee.user_name }}</p>
+                                                    <p class="text-xs text-muted-foreground">{{ attendee.user_email }}</p>
+                                                    <div class="flex items-center gap-2 mt-1">
+                                                        <Badge variant="outline" class="text-xs">
+                                                            {{ attendee.student_id || 'No ID' }}
+                                                        </Badge>
+                                                        <Badge variant="secondary" class="text-xs">
+                                                            {{ attendee.program }}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div class="flex items-center gap-2">
+                                                    <!-- Status Badge Display -->
+                                                    <Badge 
+                                                        v-if="attendee.attendance_status === 'registered'" 
+                                                        variant="secondary"
+                                                        class="flex items-center gap-1"
+                                                    >
+                                                        <UserCheck class="h-3 w-3" />
+                                                        Registered
+                                                    </Badge>
+                                                    <Badge 
+                                                        v-if="attendee.attendance_status === 'attended'" 
+                                                        variant="default"
+                                                        class="flex items-center gap-1"
+                                                    >
+                                                        <CheckCircle class="h-3 w-3" />
+                                                        Attended
+                                                    </Badge>
+                                                    <Badge 
+                                                        v-if="attendee.attendance_status === 'cancelled'" 
+                                                        variant="destructive"
+                                                        class="flex items-center gap-1"
+                                                    >
+                                                        <UserX class="h-3 w-3" />
+                                                        Cancelled
+                                                    </Badge>
+                                                    
+                                                    <!-- Dropdown for changing status -->
+                                                    <!-- <Select 
+                                                        :value="attendee.attendance_status" 
+                                                        @update:value="(value:any) => updateAttendanceStatus(attendee.id, value)"
+                                                    >
+                                                        <SelectTrigger class="w-32">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="registered">Registered</SelectItem>
+                                                            <SelectItem value="attended">Attended</SelectItem>
+                                                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                        </SelectContent>
+                                                    </Select> -->
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span class="text-xs text-muted-foreground">
+                                                    {{ new Date(attendee.registered_at).toLocaleString() }}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell class="text-right">
+                                                <Button
+                                                    @click="removeAttendee(attendee.id)"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                >
+                                                    <X class="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
 
-                            <div v-if="eventAttendees.length === 0 && !isLoadingAttendees" class="text-center py-8 text-muted-foreground">
-                                <Users class="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                <p>No attendees registered yet</p>
-                            </div>
+                                <div v-if="eventAttendees.length === 0 && !isLoadingAttendees" class="text-center py-8 text-muted-foreground">
+                                    <Users class="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                    <p>No attendees registered yet</p>
+                                </div>
 
-                            <div v-if="isLoadingAttendees" class="text-center py-8">
-                                <Loader2 class="h-8 w-8 animate-spin mx-auto mb-2" />
-                                <p>Loading attendees...</p>
+                                <div v-if="isLoadingAttendees" class="text-center py-8">
+                                    <Loader2 class="h-8 w-8 animate-spin mx-auto mb-2" />
+                                    <p>Loading attendees...</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </CardContent>
+                    </CardContent>
             </Card>
         </div>
 

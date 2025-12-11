@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use App\Models\Attendee;
 
 class UserController extends Controller
 {
@@ -113,15 +114,24 @@ class UserController extends Controller
 
     // Add this method to your UserController.php
 
-    // Add this method to your UserController.php
-
-    public function getUsersForRegistration()
+    public function getUsersForRegistration(Request $request)
     {
+        // Get the event_id from the request if available
+        $eventId = $request->query('event_id');
+        
         $users = User::select('id', 'name', 'email', 'student_id', 'program', 'year', 'role', 'status')
             ->where('status', 'active')
             ->orderBy('name')
             ->get()
-            ->map(function ($user) {
+            ->map(function ($user) use ($eventId) {
+                // Get user's registration status for the specific event if event_id is provided
+                $eventRegistration = null;
+                if ($eventId) {
+                    $eventRegistration = Attendee::where('user_id', $user->id)
+                        ->where('event_id', $eventId)
+                        ->first();
+                }
+                
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -131,6 +141,14 @@ class UserController extends Controller
                     'year' => $user->year,
                     'role' => $user->role,
                     'status' => $user->status,
+                    // Add registration information for the event
+                    'event_registration' => $eventRegistration ? [
+                        'id' => $eventRegistration->id,
+                        'attendance_status' => $eventRegistration->attendance_status,
+                        'registered_at' => $eventRegistration->registered_at->format('Y-m-d H:i'),
+                    ] : null,
+                    // Add count of all event registrations (optional, for context)
+                    'total_registrations' => $user->attendees()->count(),
                 ];
             });
 
