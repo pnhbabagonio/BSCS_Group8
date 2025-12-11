@@ -10,6 +10,53 @@ use Illuminate\Support\Facades\Storage;
 
 class HelpSupportController extends Controller
 {
+    public function publicContact()
+    {
+        return Inertia::render('PublicContactSupport');
+    }
+
+    public function storePublicContact(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'subject' => ['required', 'string', 'max:255'],
+            'message' => ['required', 'string'],
+            'category' => ['required', 'string', 'max:100'],
+            'priority' => ['nullable', 'in:low,medium,high,urgent'],
+            'attachments.*' => ['nullable', 'file', 'max:10240'], // 10MB max each
+        ]);
+
+        $attachmentPaths = [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('support_attachments', 'public');
+                    $attachmentPaths[] = [
+                        'path' => $path,
+                        'name' => $file->getClientOriginalName(),
+                        'url' => Storage::url($path)
+                    ];
+                }
+            }
+        }
+
+        SupportTicket::create([
+            'user_id' => null, // Public contact - no user ID
+            'subject' => $validated['subject'],
+            'message' => $validated['message'],
+            'category' => $validated['category'],
+            'priority' => $validated['priority'] ?? 'medium',
+            'status' => 'open',
+            'attachments' => $attachmentPaths,
+            // Store the public contact info as JSON in a custom field or in message
+            'contact_name' => $validated['name'],
+            'contact_email' => $validated['email'],
+        ]);
+
+        return redirect()->back()->with('status', 'Your support request has been submitted successfully!');
+    }
+
     public function index()
     {
         $userTickets = SupportTicket::where('user_id', Auth::id())
@@ -129,8 +176,8 @@ class HelpSupportController extends Controller
                 'updated_at' => $ticket->updated_at->format('Y-m-d H:i:s'),
                 'user' => [
                     'id' => $ticket->user->id ?? null,
-                    'name' => $ticket->user->name ?? 'Unknown User',
-                    'email' => $ticket->user->email ?? 'No email',
+                    'name' => $ticket->user->name ?? $ticket->contact_name ?? 'Unknown User',
+                    'email' => $ticket->user->email ?? $ticket->contact_email ?? 'No email',
                 ],
                 'attachments' => $attachments,
             ];

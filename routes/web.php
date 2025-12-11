@@ -29,6 +29,7 @@ Route::get('/', function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/contact-support', [HelpSupportController::class, 'publicContact'])->name('contact-support');
+Route::post('/contact-support', [HelpSupportController::class, 'storePublicContact'])->name('contact-support.store');
 
 /*
 |--------------------------------------------------------------------------
